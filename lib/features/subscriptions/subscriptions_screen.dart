@@ -262,7 +262,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
 
     void requestFocus(FocusNode focus) {
       if (mounted) {
-        FocusScope.of(context).requestFocus(focus);
+        focus.requestFocus();
       }
     }
 
@@ -273,17 +273,10 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
         content:
             Text(AppLocalizations.of(ctx).subscriptionDeleteHelp(sub.name)),
         actions: [
-          Focus(
+          TvFocus(
             focusNode: cancelFocus,
-            autofocus: true,
+            onActivate: () => Navigator.pop(ctx),
             onKeyEvent: (node, event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                      event.logicalKey == LogicalKeyboardKey.select ||
-                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                Navigator.pop(ctx);
-                return KeyEventResult.handled;
-              }
               if (event is KeyDownEvent &&
                   (event.logicalKey == LogicalKeyboardKey.arrowRight ||
                       event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
@@ -292,24 +285,23 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
               }
               return KeyEventResult.ignored;
             },
-            child: TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(AppLocalizations.of(ctx).cancel),
+            child: ExcludeFocus(
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(AppLocalizations.of(ctx).cancel),
+              ),
             ),
           ),
-          Focus(
+          TvFocus(
             focusNode: confirmFocus,
+            autofocus: true,
+            onActivate: () {
+              ref
+                  .read(subscriptionsProvider.notifier)
+                  .deleteSubscription(sub.id);
+              Navigator.pop(ctx);
+            },
             onKeyEvent: (node, event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                      event.logicalKey == LogicalKeyboardKey.select ||
-                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                ref
-                    .read(subscriptionsProvider.notifier)
-                    .deleteSubscription(sub.id);
-                Navigator.pop(ctx);
-                return KeyEventResult.handled;
-              }
               if (event is KeyDownEvent &&
                   (event.logicalKey == LogicalKeyboardKey.arrowRight ||
                       event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
@@ -318,17 +310,19 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
               }
               return KeyEventResult.ignored;
             },
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(ctx).colorScheme.error,
+            child: ExcludeFocus(
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(ctx).colorScheme.error,
+                ),
+                onPressed: () {
+                  ref
+                      .read(subscriptionsProvider.notifier)
+                      .deleteSubscription(sub.id);
+                  Navigator.pop(ctx);
+                },
+                child: Text(AppLocalizations.of(ctx).profileDelete),
               ),
-              onPressed: () {
-                ref
-                    .read(subscriptionsProvider.notifier)
-                    .deleteSubscription(sub.id);
-                Navigator.pop(ctx);
-              },
-              child: Text(AppLocalizations.of(ctx).profileDelete),
             ),
           ),
         ],
@@ -646,9 +640,8 @@ class _SubscriptionCard extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               TvFocus(
-                onActivate: isTesting
-                    ? null
-                    : () => _testWithErrorDialog(context, ref),
+                onActivate:
+                    isTesting ? null : () => _testWithErrorDialog(context, ref),
                 child: ExcludeFocus(
                   child: IconButton(
                     tooltip: l.subscriptionTestAction,

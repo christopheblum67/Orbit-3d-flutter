@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:orbit_3d_flutter/core/services/screen_awake_manager.dart';
 
 /// Lecteur audio pour les stations de radio Xtream.
 ///
@@ -9,7 +10,8 @@ import 'package:just_audio/just_audio.dart';
 /// externe), expose l'état de chargement et propage les erreurs de façon
 /// lisible pour l'utilisateur (flux indisponible côté hébergeur).
 class RadioService extends ChangeNotifier {
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _player;
+  final ScreenAwakeManager _screenAwake;
   bool _isLoading = false;
   bool _isPlaying = false;
   String? _error;
@@ -26,7 +28,9 @@ class RadioService extends ChangeNotifier {
   bool get isPlaying => _isPlaying;
   String? get error => _error;
 
-  RadioService() {
+  RadioService({AudioPlayer? player, ScreenAwakeManager? screenAwake})
+      : _player = player ?? AudioPlayer(),
+        _screenAwake = screenAwake ?? ScreenAwakeManager.instance {
     _stateSub = _player.playerStateStream.listen(_onPlayerState);
   }
 
@@ -36,6 +40,7 @@ class RadioService extends ChangeNotifier {
             state.processingState == ProcessingState.buffering);
     if (!_reconnecting && !_isLoading && playing != _isPlaying) {
       _isPlaying = playing;
+      _screenAwake.setActive(this, playing);
       notifyListeners();
     }
     // Coupure du flux alors que l'utilisateur écoute encore : on se reconnecte.
@@ -59,6 +64,7 @@ class RadioService extends ChangeNotifier {
         if (!_wanted || generation != _generation) return;
         if (await _connect(url, generation) == null) {
           _isPlaying = true;
+          _screenAwake.setActive(this, true);
           _error = null;
           notifyListeners();
           return;
@@ -67,6 +73,7 @@ class RadioService extends ChangeNotifier {
       if (generation == _generation) {
         _wanted = false;
         _isPlaying = false;
+        _screenAwake.setActive(this, false);
         _error = 'Le flux radio a été interrompu et la reconnexion a échoué. '
             'Réessaie ou choisis une autre station.';
         notifyListeners();
@@ -88,8 +95,8 @@ class RadioService extends ChangeNotifier {
         // `play()` ne se termine qu'à la fin de la lecture : ne pas l'attendre.
         unawaited(_player.play().catchError((Object _) {}));
         await _player.playerStateStream
-            .firstWhere((s) =>
-                s.playing && s.processingState == ProcessingState.ready)
+            .firstWhere(
+                (s) => s.playing && s.processingState == ProcessingState.ready)
             .timeout(const Duration(seconds: 12));
         return null;
       } on PlayerException catch (e) {
@@ -123,6 +130,7 @@ class RadioService extends ChangeNotifier {
     if (generation != _generation) return;
     _isLoading = false;
     _isPlaying = failure == null;
+    _screenAwake.setActive(this, _isPlaying);
     _error = failure;
     if (failure != null) _wanted = false;
     notifyListeners();
@@ -134,13 +142,16 @@ class RadioService extends ChangeNotifier {
     _error = null;
     _isLoading = false;
     _isPlaying = false;
+    _screenAwake.setActive(this, false);
     await _player.stop();
     notifyListeners();
   }
 
   @override
   void dispose() {
+    _generation++;
     _wanted = false;
+    _screenAwake.setActive(this, false);
     _stateSub?.cancel();
     _player.dispose();
     super.dispose();

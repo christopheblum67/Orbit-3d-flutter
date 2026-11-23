@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -17,17 +18,22 @@ void main() {
     SortMode current, {
     bool withAffinity = true,
     Locale locale = const Locale('fr'),
+    Size size = const Size(1080, 2200),
+    double textScale = 1,
   }) async {
-    // Surface haute : la liste du dialogue est virtuelle (`ListView.builder`),
-    // le 6e carreau (Affinité, ajouté en fin) sortait du viewport 600 px par
-    // défaut et n'était jamais construit.
-    tester.view.physicalSize = const Size(1080, 2200);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
       MaterialApp(
         locale: locale,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(textScale),
+          ),
+          child: child!,
+        ),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
@@ -121,5 +127,41 @@ void main() {
     await open(tester, SortMode.recentlyAdded, withAffinity: false);
     final l = AppLocalizations.of(tester.element(find.byType(Dialog)));
     expect(find.text(l.sortAffinity), findsNothing);
+  });
+
+  testWidgets('les six options tiennent dans une fenêtre TV compacte',
+      (tester) async {
+    await open(tester, SortMode.recentlyAdded, size: const Size(1280, 720));
+    final dialog = tester.getRect(find.byType(Dialog));
+    final tiles = find.byType(SortOptionTileTV);
+    expect(tiles, findsNWidgets(6));
+    for (final element in tester.elementList(tiles)) {
+      final rect = tester.getRect(find.byWidget(element.widget));
+      expect(rect.top, greaterThanOrEqualTo(dialog.top));
+      expect(rect.bottom, lessThanOrEqualTo(dialog.bottom));
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(selected, SortMode.resumeFirst);
+    expect(find.byType(Dialog), findsNothing);
+  });
+
+  testWidgets('le tri reste lisible sur téléphone avec texte agrandi',
+      (tester) async {
+    await open(tester, SortMode.yearAsc,
+        size: const Size(360, 640), locale: const Locale('de'), textScale: 1.5);
+    final l = AppLocalizations.of(tester.element(find.byType(Dialog)));
+    await tester.scrollUntilVisible(
+      find.text(l.sortAffinity),
+      120,
+      scrollable: find.descendant(
+        of: find.byType(Dialog),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(l.sortAffinity), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

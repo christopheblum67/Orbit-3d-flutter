@@ -116,10 +116,10 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
     final options = _getOptions(l);
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Container(
-        width: 640,
-        padding: const EdgeInsets.all(24),
+        width: 560,
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: const Color(0xFF16181E),
           borderRadius: BorderRadius.circular(20),
@@ -142,25 +142,27 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
                 const Icon(
                   Icons.filter_alt,
                   color: Color(0xFF8B5CF6),
-                  size: 28,
+                  size: 24,
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  l.sortOptionsTitle,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    l.sortOptionsTitle,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               l.sortOptionsHelp,
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
+              style: const TextStyle(color: Colors.white38, fontSize: 11),
             ),
-            const Divider(color: Color(0xFF262933), height: 28),
+            const Divider(color: Color(0xFF262933), height: 20),
 
             // Liste scrollable des options — FocusTraversalGroup : ordre de
             // navigation D-pad télécommande TV explicite.
@@ -225,7 +227,7 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
   Widget build(BuildContext context) {
     // Keep a stable AnimatedContainer for the test (findsNWidgets)
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: 6),
       child: TvFocus(
         enableTvEffects: false,
         autofocus: widget.autofocus,
@@ -235,7 +237,7 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
           onTap: widget.onSelect,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: _isFocused
                   ? const Color(0xFF8B5CF6).withValues(alpha: 0.18)
@@ -260,9 +262,9 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
                   color: _isFocused
                       ? const Color(0xFF8B5CF6)
                       : (widget.isActive ? Colors.amber : Colors.white38),
-                  size: 22,
+                  size: 20,
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 10),
 
                 // Libellé et Description
                 Expanded(
@@ -277,7 +279,7 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
                               : (widget.isActive
                                   ? Colors.amber
                                   : Colors.white70),
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: _isFocused || widget.isActive
                               ? FontWeight.bold
                               : FontWeight.normal,
@@ -288,7 +290,7 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
                         widget.option.description,
                         style: const TextStyle(
                           color: Colors.white38,
-                          fontSize: 11,
+                          fontSize: 10.5,
                         ),
                       ),
                     ],
@@ -299,7 +301,7 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
                 if (widget.isActive)
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.amber.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),

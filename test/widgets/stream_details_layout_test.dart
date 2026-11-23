@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,6 +83,23 @@ FocusNode _trackFocus(WidgetTester tester, String label) {
       .firstWhere((node) => node.canRequestFocus);
 }
 
+Future<void> _expectAmberBehindPanel(
+    WidgetTester tester, GlobalKey key, Rect panel) async {
+  await tester.runAsync(() async {
+    final boundary =
+        key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final image = await boundary.toImage();
+    final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+    final x = (panel.right - 3).floor();
+    final y = (panel.bottom - 3).floor();
+    final offset = (y * image.width + x) * 4;
+    expect(bytes.getUint8(offset), 255);
+    expect(bytes.getUint8(offset + 1), 193);
+    expect(bytes.getUint8(offset + 2), 7);
+    image.dispose();
+  });
+}
+
 void main() {
   for (final manyTracks in [false, true]) {
     testWidgets(
@@ -109,22 +128,26 @@ void main() {
         size: const Size(16, 9),
       ));
       await initialized;
+      final screenKey = GlobalKey();
       await tester.pumpWidget(ProviderScope(
-        child: MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Builder(
-            builder: (context) => Scaffold(
-              backgroundColor: Colors.amber,
-              body: TextButton(
-                autofocus: true,
-                onPressed: () => showStreamDetailsSheet(
-                  context,
-                  controller,
-                  'video',
+        child: RepaintBoundary(
+          key: screenKey,
+          child: MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                backgroundColor: Colors.amber,
+                body: TextButton(
+                  autofocus: true,
+                  onPressed: () => showStreamDetailsSheet(
+                    context,
+                    controller,
+                    'video',
+                  ),
+                  child: const Text('Open'),
                 ),
-                child: const Text('Open'),
               ),
             ),
           ),
@@ -143,7 +166,13 @@ void main() {
       final material = tester.widget<Material>(
         find.ancestor(of: sheet, matching: find.byType(Material)).first,
       );
-      expect(material.color!.a, closeTo(0.75, 0.01));
+      expect(material.type, MaterialType.transparency);
+      await _expectAmberBehindPanel(tester, screenKey, sheetRect);
+      final close = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Icons.close),
+      );
+      expect(close.iconSize, 18);
+      expect(close.constraints!.minWidth, 36);
       final barrier = tester
           .widgetList<ModalBarrier>(
             find.byType(ModalBarrier),
@@ -247,21 +276,26 @@ void main() {
       ));
       await initialized;
 
+      final screenKey = GlobalKey();
       await tester.pumpWidget(ProviderScope(
-        child: MaterialApp(
-          locale: const Locale('fr'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () => showStreamDetailsSheet(
-                  context,
-                  controller,
-                  'live',
-                  isLive: true,
+        child: RepaintBoundary(
+          key: screenKey,
+          child: MaterialApp(
+            locale: const Locale('fr'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                backgroundColor: Colors.amber,
+                body: TextButton(
+                  onPressed: () => showStreamDetailsSheet(
+                    context,
+                    controller,
+                    'live',
+                    isLive: true,
+                  ),
+                  child: const Text('Open'),
                 ),
-                child: const Text('Open'),
               ),
             ),
           ),
@@ -277,6 +311,11 @@ void main() {
       expect(dialog.height, lessThanOrEqualTo(size.height - 24));
       expect(dialog.height, lessThanOrEqualTo(size.height * 0.78 + 0.1));
       expect(dialog.width, lessThanOrEqualTo(size.width - 24));
+      final dialogWidget = tester.widget<Dialog>(find.byType(Dialog));
+      expect(dialogWidget.backgroundColor, Colors.transparent);
+      expect(dialogWidget.surfaceTintColor, Colors.transparent);
+      expect(dialogWidget.elevation, 0);
+      await _expectAmberBehindPanel(tester, screenKey, dialog);
       final barrier = tester
           .widgetList<ModalBarrier>(
             find.byType(ModalBarrier),

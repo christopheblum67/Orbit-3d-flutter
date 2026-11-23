@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:orbit_3d_flutter/core/services/playback_refresh_gate.dart';
+import 'package:orbit_3d_flutter/core/services/screen_awake_manager.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -136,9 +137,21 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
   void _disposeController() {
     final c = _controller;
     _controller = null;
+    ScreenAwakeManager.instance.setActive(this, false);
+    c?.removeListener(_syncScreenAwake);
     // Le détecteur ne doit jamais rester attaché à un contrôleur détruit.
     _stallDetector.stop();
     c?.dispose();
+  }
+
+  void _syncScreenAwake() {
+    final controller = _controller;
+    ScreenAwakeManager.instance.setActive(
+      this,
+      controller != null &&
+          controller.value.isPlaying &&
+          !controller.value.hasError,
+    );
   }
 
   /// Un choix explicite de l'utilisateur prime sur le comportement par défaut.
@@ -267,6 +280,8 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
       return;
     }
     setState(() => _controller = controller);
+    controller.addListener(_syncScreenAwake);
+    _syncScreenAwake();
     // L'aperçu est surveillé comme le lecteur : sans cela un gel y restait
     // totalement muet, alors que le lecteur principal signalait le sien.
     _stallDetector.start(VideoPlayerWatchable(controller));

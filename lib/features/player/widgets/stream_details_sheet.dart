@@ -30,8 +30,10 @@ Future<void> showStreamDetailsSheet(
         builder: (context, constraints) => Dialog(
           insetPadding: const EdgeInsets.all(12),
           clipBehavior: Clip.antiAlias,
-          backgroundColor:
-              Theme.of(context).colorScheme.surface.withValues(alpha: 0.75),
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          elevation: 0,
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: math.max(0, constraints.maxHeight - 24),
@@ -68,7 +70,7 @@ Future<void> showStreamDetailsSheet(
               )
             : MediaQuery.sizeOf(context).width,
         child: Material(
-          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.75),
+          type: MaterialType.transparency,
           child: StreamDetailsSheet(
             controller: controller,
             mediaKey: mediaKey,
@@ -340,7 +342,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -351,6 +353,10 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                     child: ExcludeFocus(
                       child: IconButton(
                         tooltip: l.close,
+                        iconSize: 18,
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 36, minHeight: 36),
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.close),
                       ),
@@ -567,7 +573,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
           l.subtitleEmbeddedSection,
           style: TextStyle(
             color: scheme.primary,
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.3,
           ),
@@ -766,7 +772,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
         label,
         style: TextStyle(
           color: scheme.primary,
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.3,
         ),
@@ -854,7 +860,7 @@ class _TrackTile extends StatelessWidget {
           title: Text(
             title,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               color: selected ? scheme.primary : scheme.onSurface,
             ),

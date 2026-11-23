@@ -154,11 +154,13 @@ class _VideoPlatform extends VideoPlayerPlatform {
   @override
   Future<void> setPlaybackSpeed(int playerId, double speed) async {}
   @override
-  Future<List<VideoAudioTrack>> getAudioTracks(int playerId) async => audioTracks;
+  Future<List<VideoAudioTrack>> getAudioTracks(int playerId) async =>
+      audioTracks;
   @override
   Future<void> selectAudioTrack(int playerId, String trackId) async {
     calls.add('audio:$playerId:$trackId');
   }
+
   @override
   Future<void> play(int playerId) async => calls.add('play:$playerId');
   @override
@@ -167,6 +169,7 @@ class _VideoPlatform extends VideoPlayerPlatform {
     final gate = pauseGates[playerId];
     if (gate != null) await gate.future;
   }
+
   @override
   Future<void> seekTo(int playerId, Duration position) async {
     positions[playerId] = position;
@@ -214,7 +217,8 @@ void main() {
           MethodChannel('dev.fluttercommunity.plus/connectivity');
       const connectivityStatus =
           MethodChannel('dev.fluttercommunity.plus/connectivity_status');
-      messenger.setMockMethodCallHandler(connectivityChannel, (_) async => ['wifi']);
+      messenger.setMockMethodCallHandler(
+          connectivityChannel, (_) async => ['wifi']);
       messenger.setMockMethodCallHandler(connectivityStatus, (_) async => null);
       var externalCalls = 0;
       messenger.setMockMethodCallHandler(
@@ -231,9 +235,10 @@ void main() {
             const MethodChannel('orbit/external_player'), null);
       });
       for (final name in ['orbit/night_focus', 'orbit/player_config']) {
-        messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
-        addTearDown(
-            () => messenger.setMockMethodCallHandler(MethodChannel(name), null));
+        messenger.setMockMethodCallHandler(
+            MethodChannel(name), (_) async => null);
+        addTearDown(() =>
+            messenger.setMockMethodCallHandler(MethodChannel(name), null));
       }
       final monitor = _Online();
       addTearDown(monitor.dispose);
@@ -269,9 +274,12 @@ void main() {
             ),
           ),
         ));
-        final message = AppLocalizationsFr().protectedPlaybackUnsupportedMessage;
+        final message =
+            AppLocalizationsFr().protectedPlaybackUnsupportedMessage;
         for (var i = 0; i < 50; i++) {
-          if (protected ? find.text(message).evaluate().isNotEmpty : video.sources.isNotEmpty) {
+          if (protected
+              ? find.text(message).evaluate().isNotEmpty
+              : video.sources.isNotEmpty) {
             break;
           }
           await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -293,11 +301,36 @@ void main() {
   }
 
   for (final config in [
-    (enabled: false, type: PlaybackContentType.vod, url: 'https://example.test/video.mp4?secret=abc', proxied: false),
-    (enabled: true, type: PlaybackContentType.vod, url: 'https://example.test/video.mp4?secret=abc', proxied: true),
-    (enabled: true, type: PlaybackContentType.series, url: 'https://example.test/video.mp4?secret=abc', proxied: true),
-    (enabled: true, type: PlaybackContentType.live, url: 'https://example.test/video.mp4?secret=abc', proxied: false),
-    (enabled: true, type: PlaybackContentType.vod, url: 'https://example.test/video.mpd', proxied: false),
+    (
+      enabled: false,
+      type: PlaybackContentType.vod,
+      url: 'https://example.test/video.mp4?secret=abc',
+      proxied: false
+    ),
+    (
+      enabled: true,
+      type: PlaybackContentType.vod,
+      url: 'https://example.test/video.mp4?secret=abc',
+      proxied: true
+    ),
+    (
+      enabled: true,
+      type: PlaybackContentType.series,
+      url: 'https://example.test/video.mp4?secret=abc',
+      proxied: true
+    ),
+    (
+      enabled: true,
+      type: PlaybackContentType.live,
+      url: 'https://example.test/video.mp4?secret=abc',
+      proxied: false
+    ),
+    (
+      enabled: true,
+      type: PlaybackContentType.vod,
+      url: 'https://example.test/video.mpd',
+      proxied: false
+    ),
   ]) {
     testWidgets('le lecteur respecte le relais local : $config',
         (tester) async {
@@ -315,7 +348,8 @@ void main() {
           MethodChannel('dev.fluttercommunity.plus/connectivity');
       const connectivityStatus =
           MethodChannel('dev.fluttercommunity.plus/connectivity_status');
-      messenger.setMockMethodCallHandler(connectivityChannel, (_) async => ['wifi']);
+      messenger.setMockMethodCallHandler(
+          connectivityChannel, (_) async => ['wifi']);
       messenger.setMockMethodCallHandler(connectivityStatus, (_) async => null);
       addTearDown(() {
         messenger.setMockMethodCallHandler(connectivityChannel, null);
@@ -324,7 +358,8 @@ void main() {
       final monitor = _Online();
       addTearDown(monitor.dispose);
       for (final name in ['orbit/night_focus', 'orbit/player_config']) {
-        messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
+        messenger.setMockMethodCallHandler(
+            MethodChannel(name), (_) async => null);
         addTearDown(
           () => messenger.setMockMethodCallHandler(MethodChannel(name), null),
         );
@@ -338,7 +373,9 @@ void main() {
         activeSubscriptionProvider.overrideWithValue(null),
       ]);
       addTearDown(container.dispose);
-      await container.read(advancedSettingsProvider.notifier).setLocalVideoProxy(config.enabled);
+      await container
+          .read(advancedSettingsProvider.notifier)
+          .setLocalVideoProxy(config.enabled);
       await tester.runAsync(() async {
         await tester.pumpWidget(UncontrolledProviderScope(
           container: container,
@@ -386,6 +423,15 @@ void main() {
     addTearDown(monitor.dispose);
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final awakeCalls = <bool>[];
+    const hardware = MethodChannel('orbit/hardware');
+    messenger.setMockMethodCallHandler(hardware, (call) async {
+      if (call.method == 'setKeepScreenOn') {
+        awakeCalls.add((call.arguments as Map)['enabled'] as bool);
+      }
+      return true;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(hardware, null));
     final uiModes = <String>[];
     messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
       if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
@@ -397,7 +443,8 @@ void main() {
       () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
     );
     for (final name in ['orbit/night_focus', 'orbit/player_config']) {
-      messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
+      messenger.setMockMethodCallHandler(
+          MethodChannel(name), (_) async => null);
       addTearDown(
         () => messenger.setMockMethodCallHandler(MethodChannel(name), null),
       );
@@ -425,6 +472,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(video.calls, contains('play:1'));
+    expect(awakeCalls, [true]);
     await tester.pump(const Duration(milliseconds: 100));
     expect(uiModes, contains('SystemUiMode.immersiveSticky'));
     await tester.tapAt(const Offset(400, 300));
@@ -444,6 +492,7 @@ void main() {
     expect(find.text(l.openProviderWebsite), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
+    expect(awakeCalls, [true, false]);
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -452,7 +501,8 @@ void main() {
     (tv: true, enabled: true, expectedPlayers: 1),
     (tv: false, enabled: false, expectedPlayers: 1),
   ]) {
-    testWidgets('preload respects playback and settings: $config', (tester) async {
+    testWidgets('preload respects playback and settings: $config',
+        (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
       SharedPreferences.setMockInitialValues({});
@@ -465,10 +515,13 @@ void main() {
       addTearDown(monitor.dispose);
       final tv = TvModeNotifier()..setEnabled(config.tv);
       addTearDown(tv.dispose);
-      final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
       for (final name in ['orbit/night_focus', 'orbit/player_config']) {
-        messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
-        addTearDown(() => messenger.setMockMethodCallHandler(MethodChannel(name), null));
+        messenger.setMockMethodCallHandler(
+            MethodChannel(name), (_) async => null);
+        addTearDown(() =>
+            messenger.setMockMethodCallHandler(MethodChannel(name), null));
       }
       final channels = List.generate(
         2,
@@ -490,7 +543,8 @@ void main() {
           activeSubscriptionProvider.overrideWithValue(null),
           tvModeNotifierProvider.overrideWithValue(tv),
           advancedSettingsProvider.overrideWithBuild(
-            (ref, notifier) => AdvancedSettings(zeroLagPrefetch: config.enabled),
+            (ref, notifier) =>
+                AdvancedSettings(zeroLagPrefetch: config.enabled),
           ),
         ],
         child: MaterialApp(
@@ -536,8 +590,10 @@ void main() {
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
       for (final name in ['orbit/night_focus', 'orbit/player_config']) {
-        messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
-        addTearDown(() => messenger.setMockMethodCallHandler(MethodChannel(name), null));
+        messenger.setMockMethodCallHandler(
+            MethodChannel(name), (_) async => null);
+        addTearDown(() =>
+            messenger.setMockMethodCallHandler(MethodChannel(name), null));
       }
       final channels = List.generate(
         3,
@@ -611,7 +667,8 @@ void main() {
     });
   }
 
-  testWidgets('a late preload cannot replace the active channel', (tester) async {
+  testWidgets('a late preload cannot replace the active channel',
+      (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     SharedPreferences.setMockInitialValues({});
@@ -627,8 +684,10 @@ void main() {
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     for (final name in ['orbit/night_focus', 'orbit/player_config']) {
-      messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
-      addTearDown(() => messenger.setMockMethodCallHandler(MethodChannel(name), null));
+      messenger.setMockMethodCallHandler(
+          MethodChannel(name), (_) async => null);
+      addTearDown(
+          () => messenger.setMockMethodCallHandler(MethodChannel(name), null));
     }
     final channels = List.generate(
       2,
@@ -698,10 +757,13 @@ void main() {
     addTearDown(() => VideoPlayerPlatform.instance = previousPlatform);
     final monitor = _Online();
     addTearDown(monitor.dispose);
-    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     for (final name in ['orbit/night_focus', 'orbit/player_config']) {
-      messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
-      addTearDown(() => messenger.setMockMethodCallHandler(MethodChannel(name), null));
+      messenger.setMockMethodCallHandler(
+          MethodChannel(name), (_) async => null);
+      addTearDown(
+          () => messenger.setMockMethodCallHandler(MethodChannel(name), null));
     }
     final episodes = List.generate(
       4,
@@ -779,14 +841,18 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pump();
     await tester.pump();
-    expect(Focus.of(tester.element(find.byIcon(Icons.pause_rounded))).hasPrimaryFocus,
+    expect(
+        Focus.of(tester.element(find.byIcon(Icons.pause_rounded)))
+            .hasPrimaryFocus,
         isTrue);
     final initialPauses = video.calls.where((call) => call == 'pause:1').length;
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pump();
     expect(video.calls.where((call) => call == 'pause:1'),
         hasLength(initialPauses + 1));
-    expect(Focus.of(tester.element(find.byIcon(Icons.play_arrow_rounded))).hasPrimaryFocus,
+    expect(
+        Focus.of(tester.element(find.byIcon(Icons.play_arrow_rounded)))
+            .hasPrimaryFocus,
         isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pump();
@@ -876,8 +942,10 @@ void main() {
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
       for (final name in ['orbit/night_focus', 'orbit/player_config']) {
-        messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
-        addTearDown(() => messenger.setMockMethodCallHandler(MethodChannel(name), null));
+        messenger.setMockMethodCallHandler(
+            MethodChannel(name), (_) async => null);
+        addTearDown(() =>
+            messenger.setMockMethodCallHandler(MethodChannel(name), null));
       }
       const channel = MethodChannel('orbit/external_player');
       final calls = <Map<Object?, Object?>>[];
@@ -933,10 +1001,11 @@ void main() {
           playbackProgressServiceProvider.overrideWith((ref) => _Progress()),
           rustProxyManagerProvider.overrideWithValue(RustProxyManager.instance),
           activeSubscriptionProvider.overrideWithValue(null),
-          advancedSettingsProvider.overrideWithBuild((ref, notifier) =>
-              const AdvancedSettings(
-                playerSeries: PlayerPerTypeConfig(primary: PlayerEngine.mxPlayer),
-              )),
+          advancedSettingsProvider
+              .overrideWithBuild((ref, notifier) => const AdvancedSettings(
+                    playerSeries:
+                        PlayerPerTypeConfig(primary: PlayerEngine.mxPlayer),
+                  )),
         ],
         child: MaterialApp.router(
           routerConfig: router,
@@ -950,7 +1019,8 @@ void main() {
       }
       await tester.pump();
       expect(calls, hasLength(1));
-      expect(find.textContaining('Épisode suivant : Episode 2'), findsOneWidget);
+      expect(
+          find.textContaining('Épisode suivant : Episode 2'), findsOneWidget);
       expect(find.textContaining('préférences d’Orbit'), findsOneWidget);
       final session = calls.first['session'] as int;
       Future<void> sendResult(int sessionId, bool value) async {
@@ -974,9 +1044,13 @@ void main() {
           await tester.tap(find.text('Annuler'));
           await tester.pump();
           expect(
-            tester.widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Épisode suivant : Episode 2'),
-            ).focusNode!.hasFocus,
+            tester
+                .widget<FilledButton>(
+                  find.widgetWithText(
+                      FilledButton, 'Épisode suivant : Episode 2'),
+                )
+                .focusNode!
+                .hasFocus,
             isTrue,
           );
           await tester.pump(const Duration(seconds: 16));
@@ -1044,7 +1118,8 @@ void main() {
           },
         ];
       });
-      addTearDown(() => messenger.setMockMethodCallHandler(tracksChannel, null));
+      addTearDown(
+          () => messenger.setMockMethodCallHandler(tracksChannel, null));
       for (final name in ['orbit/night_focus', 'orbit/player_config']) {
         messenger.setMockMethodCallHandler(MethodChannel(name), (call) async {
           if (name == 'orbit/player_config') {
@@ -1158,9 +1233,10 @@ void main() {
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
       for (final name in ['orbit/night_focus', 'orbit/player_config']) {
-        messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
-        addTearDown(
-            () => messenger.setMockMethodCallHandler(MethodChannel(name), null));
+        messenger.setMockMethodCallHandler(
+            MethodChannel(name), (_) async => null);
+        addTearDown(() =>
+            messenger.setMockMethodCallHandler(MethodChannel(name), null));
       }
       const channel = MethodChannel('orbit/external_player');
       messenger.setMockMethodCallHandler(channel, (call) async {
@@ -1176,10 +1252,10 @@ void main() {
           playbackProgressServiceProvider.overrideWith((ref) => progress),
           rustProxyManagerProvider.overrideWithValue(RustProxyManager.instance),
           activeSubscriptionProvider.overrideWithValue(null),
-          advancedSettingsProvider.overrideWithBuild((ref, notifier) =>
-              const AdvancedSettings(
-                playerVod: PlayerPerTypeConfig(primary: PlayerEngine.vlc),
-              )),
+          advancedSettingsProvider
+              .overrideWithBuild((ref, notifier) => const AdvancedSettings(
+                    playerVod: PlayerPerTypeConfig(primary: PlayerEngine.vlc),
+                  )),
         ],
         child: MaterialApp(
           locale: const Locale('fr'),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide AsyncResult;
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
+import 'package:orbit_3d_flutter/core/services/screen_awake_manager.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
@@ -640,6 +641,7 @@ class _VideoTileState extends State<VideoTile> {
     _failed = false;
     final old = _controller;
     _controller = null;
+    ScreenAwakeManager.instance.setActive(this, false);
     if (old != null) {
       old.removeListener(_onControllerUpdate);
       _pendingDisposal = safeAsync<void>(
@@ -695,6 +697,7 @@ class _VideoTileState extends State<VideoTile> {
         gen != _generation) {
       if (_controller == controller) {
         _controller = null;
+        ScreenAwakeManager.instance.setActive(this, false);
         controller.removeListener(_onControllerUpdate);
         _pendingDisposal = safeAsync<void>(
           controller.dispose,
@@ -711,6 +714,12 @@ class _VideoTileState extends State<VideoTile> {
   void _onControllerUpdate() {
     if (!mounted) return;
     final controller = _controller;
+    ScreenAwakeManager.instance.setActive(
+      this,
+      controller != null &&
+          controller.value.isPlaying &&
+          !controller.value.hasError,
+    );
     if (controller == null || !controller.value.hasError) return;
     if (_failed) return;
     setState(() => _failed = true);
@@ -727,6 +736,7 @@ class _VideoTileState extends State<VideoTile> {
 
   @override
   void dispose() {
+    ScreenAwakeManager.instance.setActive(this, false);
     _generation++;
     _startupTimer?.cancel();
     final controller = _controller;

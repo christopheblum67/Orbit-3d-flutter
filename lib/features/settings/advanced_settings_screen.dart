@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/widgets/dpad_scope.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
@@ -12,6 +13,7 @@ import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart'
     show
+        cloudflareSessionProvider,
         currentProfileProvider,
         profilesProvider,
         storageServiceProvider,
@@ -41,7 +43,7 @@ const String kAdvancedSettingsCode = '54321';
 /// trois essais n'arrête personne et perd l'utilisateur qui a oublié son code.
 Future<bool> requestAdvancedAccess(BuildContext context) async {
   final l = AppLocalizations.of(context);
-  final controller = TextEditingController();
+  var code = '';
 
   final accepted = await showDialog<bool>(
     context: context,
@@ -49,7 +51,6 @@ Future<bool> requestAdvancedAccess(BuildContext context) async {
     builder: (dialogContext) => AlertDialog(
       title: Text(l.advancedAccessTitle),
       content: TextField(
-        controller: controller,
         autofocus: true,
         obscureText: true,
         keyboardType: TextInputType.number,
@@ -63,6 +64,7 @@ Future<bool> requestAdvancedAccess(BuildContext context) async {
           hintText: l.advancedAccessHint,
           counterText: '',
         ),
+        onChanged: (value) => code = value,
         onSubmitted: (_) => Navigator.of(dialogContext).pop(true),
       ),
       actions: [
@@ -92,11 +94,9 @@ Future<bool> requestAdvancedAccess(BuildContext context) async {
     ),
   );
 
-  final code = controller.text.trim();
-  controller.dispose();
   if (accepted != true) return false;
 
-  if (code == kAdvancedSettingsCode) return true;
+  if (code.trim() == kAdvancedSettingsCode) return true;
 
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -118,6 +118,42 @@ class AdvancedSettingsScreen extends ConsumerStatefulWidget {
 class _AdvancedSettingsScreenState
     extends ConsumerState<AdvancedSettingsScreen> {
   bool _removingProfilePins = false;
+  bool _resettingCloudflare = false;
+
+  Future<void> _resetCloudflare() async {
+    if (_resettingCloudflare) return;
+    final l = AppLocalizations.of(context);
+    final session = ref.read(cloudflareSessionProvider);
+    if (!session.isReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.cloudflareNoActiveSession)),
+      );
+      return;
+    }
+
+    setState(() => _resettingCloudflare = true);
+    try {
+      await session.renewSession(force: true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.snackCloudflareReset)),
+        );
+      }
+    } catch (error, stack) {
+      LoggerService.instance.error(
+        'Cloudflare session renewal failed',
+        error: error,
+        stackTrace: stack,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.connectionServerUnreachable)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _resettingCloudflare = false);
+    }
+  }
 
   Future<void> _removeProfilePins() async {
     if (_removingProfilePins) return;
@@ -266,6 +302,34 @@ class _AdvancedSettingsScreenState
                 _removingProfilePins
                     ? l.profilePinsRemoving
                     : l.profilePinsRemoveAll,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          SettingsSectionTitle(l.sectionCloudflare),
+          Text(
+            l.cloudflareResetSubtitle,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TvFocus(
+              onActivate: _resettingCloudflare ? null : _resetCloudflare,
+              child: ExcludeFocus(
+                child: FilledButton.tonalIcon(
+                  onPressed: _resettingCloudflare ? null : _resetCloudflare,
+                  icon: _resettingCloudflare
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.restore_outlined),
+                  label: Text(l.cloudflareReset),
+                ),
               ),
             ),
           ),

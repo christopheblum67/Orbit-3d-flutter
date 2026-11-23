@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -89,6 +90,20 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
     }
   }
 
+  void _keepVisible(FocusNode focus, bool focused) {
+    if (!focused) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = focus.context;
+      if (mounted && target != null && focus.hasFocus) {
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 180),
+          alignment: 0.5,
+        );
+      }
+    });
+  }
+
   Future<void> _push() async {
     await NightFocusAudioService.push(
       _nightFocusEnabled,
@@ -106,10 +121,10 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
     required FocusNode prevFocusNode,
     required bool value,
     required ValueChanged<bool> onChanged,
-    required Widget child,
   }) {
-    return Focus(
+    return TvFocus(
       focusNode: focusNode,
+      onFocusChange: (focused) => _keepVisible(focusNode, focused),
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -131,9 +146,11 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
         }
         return KeyEventResult.ignored;
       },
-      child: Switch(
-        value: value,
-        onChanged: onChanged,
+      child: ExcludeFocus(
+        child: Switch(
+          value: value,
+          onChanged: onChanged,
+        ),
       ),
     );
   }
@@ -148,8 +165,9 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
     required Widget title,
     Widget? subtitle,
   }) {
-    return Focus(
+    return TvFocus(
       focusNode: focusNode,
+      onFocusChange: (focused) => _keepVisible(focusNode, focused),
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -169,14 +187,16 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
         }
         return KeyEventResult.ignored;
       },
-      child: CheckboxListTile(
-        enabled: enabled,
-        contentPadding: EdgeInsets.zero,
-        dense: true,
-        title: title,
-        subtitle: subtitle,
-        value: value,
-        onChanged: enabled ? onChanged : null,
+      child: ExcludeFocus(
+        child: CheckboxListTile(
+          enabled: enabled,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          title: title,
+          subtitle: subtitle,
+          value: value,
+          onChanged: enabled ? onChanged : null,
+        ),
       ),
     );
   }
@@ -190,8 +210,9 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
     String? tooltip,
     bool autofocus = false,
   }) {
-    return Focus(
+    return TvFocus(
       focusNode: focusNode,
+      onFocusChange: (focused) => _keepVisible(focusNode, focused),
       autofocus: autofocus,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
@@ -220,10 +241,12 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
         }
         return KeyEventResult.ignored;
       },
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: Icon(icon),
+      child: ExcludeFocus(
+        child: IconButton(
+          tooltip: tooltip,
+          onPressed: onPressed,
+          icon: Icon(icon),
+        ),
       ),
     );
   }
@@ -235,8 +258,9 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
     required VoidCallback onPressed,
     required Widget child,
   }) {
-    return Focus(
+    return TvFocus(
       focusNode: focusNode,
+      onFocusChange: (focused) => _keepVisible(focusNode, focused),
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -253,17 +277,22 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
             _requestFocus(prevFocusNode);
             return KeyEventResult.handled;
           }
-          if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
-              event.logicalKey == LogicalKeyboardKey.arrowDown) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            _requestFocus(prevFocusNode);
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
             _requestFocus(nextFocusNode);
             return KeyEventResult.handled;
           }
         }
         return KeyEventResult.ignored;
       },
-      child: TextButton(
-        onPressed: onPressed,
-        child: child,
+      child: ExcludeFocus(
+        child: TextButton(
+          onPressed: onPressed,
+          child: child,
+        ),
       ),
     );
   }
@@ -279,8 +308,9 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
     required String label,
     required ValueChanged<double> onChanged,
   }) {
-    return Focus(
+    return TvFocus(
       focusNode: focusNode,
+      onFocusChange: (focused) => _keepVisible(focusNode, focused),
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
@@ -310,13 +340,15 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
         }
         return KeyEventResult.ignored;
       },
-      child: Slider(
-        value: value,
-        min: min,
-        max: max,
-        divisions: divisions,
-        label: label,
-        onChanged: onChanged,
+      child: ExcludeFocus(
+        child: Slider(
+          value: value,
+          min: min,
+          max: max,
+          divisions: divisions,
+          label: label,
+          onChanged: onChanged,
+        ),
       ),
     );
   }
@@ -332,278 +364,287 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
-          ),
-          child: FocusTraversalGroup(
-            policy: OrderedTraversalPolicy(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
-                  child: Row(
-                    children: [
-                      Icon(Icons.nightlight_round, color: scheme.primary),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          l.audioAndNightFocus,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
+        child: Center(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 600,
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            child: FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+                    child: Row(
+                      children: [
+                        Icon(Icons.nightlight_round, color: scheme.primary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            l.audioAndNightFocus,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
-                      _buildTvIconButton(
-                        focusNode: _closeFocus,
-                        autofocus: true,
-                        nextFocusNode: _nightFocusSwitchFocus,
-                        prevFocusNode: _resetFocus,
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: Icons.close,
-                        tooltip: l.close,
-                      ),
-                    ],
-                  ),
-                ),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                      Text(
-                        l.audioNightHelp,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: scheme.onSurfaceVariant,
+                        _buildTvIconButton(
+                          focusNode: _closeFocus,
+                          autofocus: true,
+                          nextFocusNode: _nightFocusSwitchFocus,
+                          prevFocusNode: _resetFocus,
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: Icons.close,
+                          tooltip: l.close,
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      AppCard(
-                        padding: const EdgeInsets.all(14),
-                        borderRadius:
-                            BorderRadius.circular(AppConstants.radiusLg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.nightlight_round,
-                                  color: _nightFocusEnabled
-                                      ? scheme.primary
-                                      : scheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    l.audioNightTitle,
-                                    style: textTheme.bodyLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: _nightFocusEnabled
-                                          ? null
-                                          : scheme.onSurfaceVariant,
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: [
+                        Text(
+                          l.audioNightHelp,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        AppCard(
+                          padding: const EdgeInsets.all(14),
+                          borderRadius:
+                              BorderRadius.circular(AppConstants.radiusLg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.nightlight_round,
+                                    color: _nightFocusEnabled
+                                        ? scheme.primary
+                                        : scheme.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      l.audioNightTitle,
+                                      style: textTheme.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: _nightFocusEnabled
+                                            ? null
+                                            : scheme.onSurfaceVariant,
+                                      ),
                                     ),
                                   ),
+                                  _buildTvSwitch(
+                                    focusNode: _nightFocusSwitchFocus,
+                                    nextFocusNode: _dialogueBoostFocus,
+                                    prevFocusNode: _closeFocus,
+                                    value: _nightFocusEnabled,
+                                    onChanged: (v) async {
+                                      await _notifier.setNightFocus(v);
+                                      await _push();
+                                    },
+                                  ),
+                                ],
+                              ),
+                              _buildTvCheckboxListTile(
+                                focusNode: _dialogueBoostFocus,
+                                nextFocusNode: _bassKillerFocus,
+                                prevFocusNode: _nightFocusSwitchFocus,
+                                enabled: _nightFocusEnabled,
+                                value: _dialogueBoost,
+                                onChanged: (v) async {
+                                  await _notifier
+                                      .setNightFocusDialogueBoost(v ?? false);
+                                  await _push();
+                                },
+                                title: Text(
+                                  l.audioDialogueBoost,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                                _buildTvSwitch(
-                                  focusNode: _nightFocusSwitchFocus,
-                                  nextFocusNode: _dialogueBoostFocus,
-                                  prevFocusNode: _closeFocus,
-                                  value: _nightFocusEnabled,
+                                subtitle: Text(
+                                  l.audioDialogueHelp,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              _buildTvCheckboxListTile(
+                                focusNode: _bassKillerFocus,
+                                nextFocusNode:
+                                    _nightFocusEnabled && _dialogueBoost
+                                        ? _vocalGainSliderFocus
+                                        : _shiftMinusFocus,
+                                prevFocusNode: _dialogueBoostFocus,
+                                enabled: _nightFocusEnabled,
+                                value: _bassKiller,
+                                onChanged: (v) async {
+                                  await _notifier
+                                      .setNightFocusBassKiller(v ?? false);
+                                  await _push();
+                                },
+                                title: Text(
+                                  l.audioBassLimiter,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                subtitle: Text(
+                                  l.audioBassHelp,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              if (_nightFocusEnabled && _dialogueBoost) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        l.audioVocalGain,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                    Text(
+                                      '+${_vocalGainDb.toStringAsFixed(1)} dB',
+                                      style: TextStyle(
+                                        color: scheme.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                _buildTvSlider(
+                                  focusNode: _vocalGainSliderFocus,
+                                  nextFocusNode: _shiftMinusFocus,
+                                  prevFocusNode: _bassKillerFocus,
+                                  value: _vocalGainDb,
+                                  min: 1.0,
+                                  max: 8.0,
+                                  divisions: 14,
+                                  label:
+                                      '+${_vocalGainDb.toStringAsFixed(1)} dB',
                                   onChanged: (v) async {
-                                    await _notifier.setNightFocus(v);
+                                    await _notifier.setNightFocusVocalGainDb(v);
                                     await _push();
                                   },
-                                  child: const SizedBox.shrink(),
                                 ),
                               ],
-                            ),
-                            _buildTvCheckboxListTile(
-                              focusNode: _dialogueBoostFocus,
-                              nextFocusNode: _bassKillerFocus,
-                              prevFocusNode: _nightFocusSwitchFocus,
-                              enabled: _nightFocusEnabled,
-                              value: _dialogueBoost,
-                              onChanged: (v) async {
-                                await _notifier
-                                    .setNightFocusDialogueBoost(v ?? false);
-                                await _push();
-                              },
-                              title: Text(
-                                l.audioDialogueBoost,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                              subtitle: Text(
-                                l.audioDialogueHelp,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: scheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            _buildTvCheckboxListTile(
-                              focusNode: _bassKillerFocus,
-                              nextFocusNode:
-                                  _nightFocusEnabled && _dialogueBoost
-                                      ? _vocalGainSliderFocus
-                                      : _shiftMinusFocus,
-                              prevFocusNode: _dialogueBoostFocus,
-                              enabled: _nightFocusEnabled,
-                              value: _bassKiller,
-                              onChanged: (v) async {
-                                await _notifier
-                                    .setNightFocusBassKiller(v ?? false);
-                                await _push();
-                              },
-                              title: Text(
-                                l.audioBassLimiter,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                              subtitle: Text(
-                                l.audioBassHelp,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: scheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            if (_nightFocusEnabled && _dialogueBoost) ...[
-                              const SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        AppCard(
+                          padding: const EdgeInsets.all(14),
+                          borderRadius:
+                              BorderRadius.circular(AppConstants.radiusLg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    l.audioVocalGain,
-                                    style: const TextStyle(fontSize: 12),
+                                  Icon(
+                                    Icons.sync_problem,
+                                    color: scheme.tertiary,
                                   ),
-                                  Text(
-                                    '+${_vocalGainDb.toStringAsFixed(1)} dB',
-                                    style: TextStyle(
-                                      color: scheme.primary,
-                                      fontWeight: FontWeight.bold,
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      l.audioSyncTitle,
+                                      style: textTheme.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                              _buildTvSlider(
-                                focusNode: _vocalGainSliderFocus,
-                                nextFocusNode: _shiftMinusFocus,
-                                prevFocusNode: _bassKillerFocus,
-                                value: _vocalGainDb,
-                                min: 1.0,
-                                max: 8.0,
-                                divisions: 14,
-                                label: '+${_vocalGainDb.toStringAsFixed(1)} dB',
-                                onChanged: (v) async {
-                                  await _notifier.setNightFocusVocalGainDb(v);
-                                  await _push();
-                                },
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      AppCard(
-                        padding: const EdgeInsets.all(14),
-                        borderRadius:
-                            BorderRadius.circular(AppConstants.radiusLg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.sync_problem,
-                                  color: scheme.tertiary,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  l.audioSyncTitle,
-                                  style: textTheme.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.w700,
+                              const SizedBox(height: 12),
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  _buildTvIconButton(
+                                    focusNode: _shiftMinusFocus,
+                                    nextFocusNode: _shiftPlusFocus,
+                                    prevFocusNode:
+                                        _nightFocusEnabled && _dialogueBoost
+                                            ? _vocalGainSliderFocus
+                                            : _bassKillerFocus,
+                                    onPressed: () async {
+                                      await _notifier.setNightFocusAudioShiftMs(
+                                        _audioShiftMs - 50,
+                                      );
+                                      await _push();
+                                    },
+                                    icon: Icons.remove_circle_outline,
+                                    tooltip: l.audioShiftMinus50,
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _buildTvIconButton(
-                                  focusNode: _shiftMinusFocus,
-                                  nextFocusNode: _shiftPlusFocus,
-                                  prevFocusNode:
-                                      _nightFocusEnabled && _dialogueBoost
-                                          ? _vocalGainSliderFocus
-                                          : _bassKillerFocus,
-                                  onPressed: () async {
-                                    await _notifier.setNightFocusAudioShiftMs(
-                                      _audioShiftMs - 50,
-                                    );
-                                    await _push();
-                                  },
-                                  icon: Icons.remove_circle_outline,
-                                  tooltip: l.audioShiftMinus50,
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: scheme.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    '${_audioShiftMs >= 0 ? "+" : ""}'
-                                    '$_audioShiftMs ms',
-                                    style: TextStyle(
-                                      color: scheme.primary,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: scheme.surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '${_audioShiftMs >= 0 ? "+" : ""}'
+                                      '$_audioShiftMs ms',
+                                      style: TextStyle(
+                                        color: scheme.primary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                _buildTvIconButton(
-                                  focusNode: _shiftPlusFocus,
-                                  nextFocusNode: _resetFocus,
-                                  prevFocusNode: _shiftMinusFocus,
-                                  onPressed: () async {
-                                    await _notifier.setNightFocusAudioShiftMs(
-                                      _audioShiftMs + 50,
-                                    );
-                                    await _push();
-                                  },
-                                  icon: Icons.add_circle_outline,
-                                  tooltip: l.audioShiftPlus50,
-                                ),
-                                _buildTvTextButton(
-                                  focusNode: _resetFocus,
-                                  nextFocusNode: _closeFocus,
-                                  prevFocusNode: _shiftPlusFocus,
-                                  onPressed: () async {
-                                    await _notifier
-                                        .setNightFocusAudioShiftMs(0);
-                                    await _push();
-                                  },
-                                  child: Text(l.reset),
-                                ),
-                              ],
-                            ),
-                          ],
+                                  _buildTvIconButton(
+                                    focusNode: _shiftPlusFocus,
+                                    nextFocusNode: _resetFocus,
+                                    prevFocusNode: _shiftMinusFocus,
+                                    onPressed: () async {
+                                      await _notifier.setNightFocusAudioShiftMs(
+                                        _audioShiftMs + 50,
+                                      );
+                                      await _push();
+                                    },
+                                    icon: Icons.add_circle_outline,
+                                    tooltip: l.audioShiftPlus50,
+                                  ),
+                                  _buildTvTextButton(
+                                    focusNode: _resetFocus,
+                                    nextFocusNode: _closeFocus,
+                                    prevFocusNode: _shiftPlusFocus,
+                                    onPressed: () async {
+                                      await _notifier
+                                          .setNightFocusAudioShiftMs(0);
+                                      await _push();
+                                    },
+                                    child: Text(l.reset),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
+                        const SizedBox(height: 8),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

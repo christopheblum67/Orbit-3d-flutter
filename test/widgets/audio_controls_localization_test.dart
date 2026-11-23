@@ -39,7 +39,13 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
     }
-    expect(Focus.of(tester.element(find.byTooltip('-50 ms'))).hasFocus, isTrue);
+    expect(
+      find.descendant(
+        of: find.byWidget(FocusManager.instance.primaryFocus!.context!.widget),
+        matching: find.byTooltip('-50 ms'),
+      ),
+      findsOneWidget,
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
     final focused = FocusManager.instance.primaryFocus!.context!.widget;

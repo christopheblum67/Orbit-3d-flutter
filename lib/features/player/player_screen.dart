@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:orbit_3d_flutter/core/services/playback_refresh_gate.dart';
+import 'package:orbit_3d_flutter/core/services/screen_awake_manager.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -268,20 +269,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     return widget.seriesName ?? widget.episodeLabel ?? 'Lecture en cours';
   }
 
-  static const _hardwareChannel = MethodChannel('orbit/hardware');
-
-  /// Empêche la mise en veille de l'écran tant que le lecteur est ouvert.
-  void _setKeepScreenOn(bool enabled) {
-    unawaited(
-      _hardwareChannel.invokeMethod<bool>(
-          'setKeepScreenOn', {'enabled': enabled}).catchError((_) => false),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
-    _setKeepScreenOn(true);
+    ScreenAwakeManager.instance.setActive(this, true);
     _refreshLease = PlaybackRefreshGate.instance.acquire();
     _progressWriter =
         PlaybackProgressWriter(ref.read(playbackProgressServiceProvider));
@@ -370,7 +361,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   void dispose() {
-    _setKeepScreenOn(false);
+    ScreenAwakeManager.instance.setActive(this, false);
     _externalSession = null;
     unawaited(_externalResultsSubscription?.cancel());
     _embeddedScanner.stop();

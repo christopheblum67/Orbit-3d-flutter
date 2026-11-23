@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
+import 'package:orbit_3d_flutter/core/services/screen_awake_manager.dart';
 import 'package:orbit_3d_flutter/features/live_tv/widgets/live_channel_video.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -75,6 +77,19 @@ void main() {
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
       messenger.setMockMethodCallHandler(channel, (_) async => null);
       addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final awakeCalls = <bool>[];
+      const hardware = MethodChannel('orbit/hardware');
+      if (size == Size.zero) {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      }
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      messenger.setMockMethodCallHandler(hardware, (call) async {
+        if (call.method == 'setKeepScreenOn') {
+          awakeCalls.add((call.arguments as Map)['enabled'] as bool);
+        }
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(hardware, null));
 
       await tester.pumpWidget(ProviderScope(
         overrides: [
@@ -111,6 +126,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
       }
       final rect = tester.getRect(find.byKey(const ValueKey('preview-video')));
+      if (size == Size.zero) expect(awakeCalls, [true]);
       expect(rect.width, greaterThan(0));
       expect(rect.height, greaterThan(0));
       expect(rect.width / rect.height,
@@ -125,6 +141,12 @@ void main() {
       );
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
+      await tester.pump();
+      if (size == Size.zero) {
+        expect(awakeCalls, [true, false]);
+        await ScreenAwakeManager.instance.pending;
+      }
+      debugDefaultTargetPlatformOverride = null;
     });
   }
 }

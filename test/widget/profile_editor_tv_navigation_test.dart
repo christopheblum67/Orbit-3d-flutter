@@ -46,6 +46,13 @@ void main() {
           )
           .first;
       await tester.scrollUntilVisible(
+        find.byType(TextFormField),
+        300,
+        scrollable: scrollable,
+      );
+      expect(find.text(l.menuContinue), findsNothing,
+          reason: locale.languageCode);
+      await tester.scrollUntilVisible(
         find.text(l.genreAdventure),
         300,
         scrollable: scrollable,
@@ -87,7 +94,7 @@ void main() {
     expect(find.text('Aventure'), findsNothing);
     await tester.scrollUntilVisible(find.byType(TextFormField), -300,
         scrollable: scrollable);
-    expect(find.text('Continue'), findsOneWidget);
+    expect(find.text('Continue'), findsNothing);
     await tester.enterText(find.byType(TextFormField), 'Camille');
     await tester.scrollUntilVisible(
       find.text('Create profile'),
@@ -137,6 +144,46 @@ void main() {
     expect(selectedUrl, contains('/avatar_collection/char_'));
   });
 
+  testWidgets('favorite genres use the available width on a phone',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(480, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _localizedApp(const ProfileEditScreen(), locale: const Locale('fr')),
+    );
+    final scrollable = find
+        .descendant(
+          of: find.byType(ListView).first,
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('Animation'),
+      300,
+      scrollable: scrollable,
+    );
+    await tester.pumpAndSettle();
+    final actionY = tester.getTopLeft(find.text('Action')).dy;
+    expect(tester.getTopLeft(find.text('Aventure')).dy, actionY);
+    expect(tester.getTopLeft(find.text('Animation')).dy, actionY);
+    final wrap = find
+        .ancestor(
+          of: find.text('Animation'),
+          matching: find.byType(Wrap),
+        )
+        .first;
+    final chip = find
+        .ancestor(
+          of: find.text('Animation'),
+          matching: find.byType(AnimatedContainer),
+        )
+        .first;
+    expect(tester.getRect(chip).right, closeTo(tester.getRect(wrap).right, 1));
+    await tester.tap(find.text('Aventure'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('D-pad moves from profile name to next and into settings',
       (tester) async {
     await tester.pumpWidget(
@@ -166,7 +213,7 @@ void main() {
         FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGenre');
   });
 
-  testWidgets('TV continue validates the name and keeps D-pad editing',
+  testWidgets('TV navigation validates the name and keeps D-pad editing',
       (tester) async {
     final tvMode = TvModeNotifier()..enable();
     addTearDown(tvMode.dispose);
@@ -200,9 +247,6 @@ void main() {
     expect(tester.widget<EditableText>(editable).readOnly, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.continue');
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.name');
     expect(find.text('Obligatoire'), findsOneWidget);
 
@@ -217,46 +261,15 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.continue');
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.name');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     expect(
         FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGenre');
     expect(name.controller.text, 'Zoë 李');
   });
 
-  testWidgets('continue button validates and advances on tap', (tester) async {
-    await tester.pumpWidget(
-      _localizedApp(const ProfileEditScreen(), locale: const Locale('fr')),
-    );
-    final scrollable = find
-        .descendant(
-          of: find.byType(ListView).first,
-          matching: find.byType(Scrollable),
-        )
-        .first;
-    await tester.scrollUntilVisible(
-      find.text('Continuer'),
-      300,
-      scrollable: scrollable,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Continuer'));
-    await tester.pumpAndSettle();
-    expect(find.text('Obligatoire'), findsOneWidget);
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.name');
-
-    await tester.enterText(find.byType(TextFormField), 'Camille');
-    tester.testTextInput.hide();
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Continuer'));
-    await tester.tap(find.text('Continuer'));
-    await tester.pumpAndSettle();
-    expect(
-        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGenre');
-  });
-
-  testWidgets('TV can reach continue from the name in RTL', (tester) async {
+  testWidgets('TV can reach genres from the name in RTL', (tester) async {
     final tvMode = TvModeNotifier()..enable();
     addTearDown(tvMode.dispose);
     await tester.pumpWidget(
@@ -282,10 +295,13 @@ void main() {
       of: find.byType(TextFormField),
       matching: find.byType(EditableText),
     );
-    tester.widget<EditableText>(editable).focusNode.requestFocus();
+    final name = tester.widget<EditableText>(editable);
+    name.controller!.text = 'Camille';
+    name.focusNode.requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.continue');
+    expect(
+        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGenre');
   });
 }

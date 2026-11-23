@@ -126,6 +126,20 @@ void main() {
     }
   });
 
+  testWidgets('cloud synchronization help is inside the account screen',
+      (tester) async {
+    await tester.pumpWidget(_TestApp(
+      home:
+          CloudAccountScreen(service: _FakeAccountService(), tvDetector: notTv),
+    ));
+    await tester.pumpAndSettle();
+    final help = find
+        .text(lookupAppLocalizations(const Locale('fr')).cloudSyncProfileHelp);
+    await tester.scrollUntilVisible(help, 250,
+        scrollable: find.byType(Scrollable).first);
+    expect(help, findsOneWidget);
+  });
+
   testWidgets('TV hides Google options and opens QR pairing with the remote',
       (tester) async {
     if (!qrPairingAvailable) return;

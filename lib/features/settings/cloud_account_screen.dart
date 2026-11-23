@@ -321,6 +321,8 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
             ],
           ),
           if (_busy) const LinearProgressIndicator(),
+          const SizedBox(height: 16),
+          Text(l.cloudSyncProfileHelp),
         ],
       ),
     );

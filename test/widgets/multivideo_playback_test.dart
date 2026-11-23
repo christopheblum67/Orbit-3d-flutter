@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -122,6 +123,19 @@ void main() {
 
   testWidgets('tiles stagger startup and cancel a removed pending tile',
       (tester) async {
+    final awakeCalls = <bool>[];
+    const hardware = MethodChannel('orbit/hardware');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    messenger.setMockMethodCallHandler(hardware, (call) async {
+      if (call.method == 'setKeepScreenOn') {
+        awakeCalls.add((call.arguments as Map)['enabled'] as bool);
+      }
+      return true;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(hardware, null));
     final previous = VideoPlayerPlatform.instance;
     final platform = _VideoPlatform();
     VideoPlayerPlatform.instance = platform;
@@ -168,6 +182,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
     expect(platform.created.length, 4);
+    expect(awakeCalls, [true]);
     await tester.pumpWidget(tiles([0, 1, 2]));
     await tester.pumpWidget(tiles([0, 1, 2, 3]));
     await tester.pumpWidget(tiles([0, 1, 2]));
@@ -181,6 +196,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(platform.disposed, containsAll([1, 2, 3, 4]));
+    expect(awakeCalls, [true, false]);
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('changing a pending tile URL cancels its original startup',

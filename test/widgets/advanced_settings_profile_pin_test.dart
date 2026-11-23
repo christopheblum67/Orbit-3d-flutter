@@ -1,11 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
+import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
+
+class _CloudflareSession extends Fake implements CloudflareSessionManager {
+  _CloudflareSession({required this.ready, this.fail = false});
+
+  final bool ready;
+  final bool fail;
+  final calls = <bool>[];
+
+  @override
+  bool get isReady => ready;
+
+  @override
+  Future<void> renewSession({bool force = false}) async {
+    calls.add(force);
+    if (fail) throw StateError('renewal failed');
+  }
+}
 
 class _MemoryStorage extends StorageService {
   _MemoryStorage(this.profiles);
@@ -42,6 +62,61 @@ UserProfile _profile(String id, {String? pin}) => UserProfile(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final scenario in ['ready', 'absent', 'error']) {
+    testWidgets('Cloudflare action reports $scenario correctly',
+        (tester) async {
+      final session = _CloudflareSession(
+        ready: scenario != 'absent',
+        fail: scenario == 'error',
+      );
+      final container = ProviderContainer(overrides: [
+        cloudflareSessionProvider.overrideWithValue(session),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+      ]);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: AdvancedSettingsScreen(),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final action = find.text('Réinitialiser la session Cloudflare');
+      await tester.scrollUntilVisible(action, 250,
+          scrollable: find.byType(Scrollable).first);
+      if (scenario == 'ready') {
+        final tile =
+            find.ancestor(of: action, matching: find.byType(TvFocus)).first;
+        final focusChild = find
+            .descendant(
+              of: tile,
+              matching: find.byType(ExcludeFocus),
+            )
+            .first;
+        Focus.of(tester.element(focusChild)).requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      } else {
+        await tester.tap(action);
+      }
+      await tester.pumpAndSettle();
+      expect(session.calls, scenario == 'absent' ? isEmpty : [true]);
+      final l = lookupAppLocalizations(const Locale('fr'));
+      expect(
+        find.text(scenario == 'ready'
+            ? l.snackCloudflareReset
+            : scenario == 'absent'
+                ? l.cloudflareNoActiveSession
+                : l.connectionServerUnreachable),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
   testWidgets('requires confirmation before removing every profile PIN',
       (tester) async {
     final storage = _MemoryStorage([
@@ -50,6 +125,7 @@ void main() {
       _profile('unprotected'),
     ]);
     final container = ProviderContainer(overrides: [
+      activeSubscriptionProvider.overrideWith((ref) => null),
       storageServiceProvider.overrideWithValue(storage),
       currentProfileProvider.overrideWithBuild(
         (ref, notifier) => _profile('active', pin: '1234'),
@@ -99,6 +175,7 @@ void main() {
   testWidgets('PIN removal warning uses the selected language', (tester) async {
     final storage = _MemoryStorage([_profile('active', pin: '1234')]);
     final container = ProviderContainer(overrides: [
+      activeSubscriptionProvider.overrideWith((ref) => null),
       storageServiceProvider.overrideWithValue(storage),
       currentProfileProvider.overrideWithBuild(
         (ref, notifier) => _profile('active', pin: '1234'),

@@ -2769,11 +2769,15 @@ class AppLocalizationsFr extends AppLocalizations {
       'Synchronise favoris, épisodes vus, récents et reprises de lecture pour cette installation';
 
   @override
-  String get cloudflareReset => 'Réinitialiser config Cloudflare';
+  String get cloudflareReset => 'Réinitialiser la session Cloudflare';
 
   @override
   String get cloudflareResetSubtitle =>
-      'Désactive l\'impersonation TLS et rétablit l\'User-Agent standard du lecteur';
+      'Renouvelle la session Cloudflare active.';
+
+  @override
+  String get cloudflareNoActiveSession =>
+      'Aucune session Cloudflare active à renouveler.';
 
   @override
   String get comingSoon => 'Bientôt disponible';
@@ -3625,7 +3629,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get snackCacheCleared => 'Caches vidés';
 
   @override
-  String get snackCloudflareReset => 'Config Cloudflare réinitialisée';
+  String get snackCloudflareReset => 'Session Cloudflare renouvelée';
 
   @override
   String snackImportError(String message) {

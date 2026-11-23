@@ -4789,14 +4789,20 @@ abstract class AppLocalizations {
   /// No description provided for @cloudflareReset.
   ///
   /// In fr, this message translates to:
-  /// **'Réinitialiser config Cloudflare'**
+  /// **'Réinitialiser la session Cloudflare'**
   String get cloudflareReset;
 
   /// No description provided for @cloudflareResetSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Désactive l\'impersonation TLS et rétablit l\'User-Agent standard du lecteur'**
+  /// **'Renouvelle la session Cloudflare active.'**
   String get cloudflareResetSubtitle;
+
+  /// No description provided for @cloudflareNoActiveSession.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune session Cloudflare active à renouveler.'**
+  String get cloudflareNoActiveSession;
 
   /// No description provided for @comingSoon.
   ///
@@ -6355,7 +6361,7 @@ abstract class AppLocalizations {
   /// No description provided for @snackCloudflareReset.
   ///
   /// In fr, this message translates to:
-  /// **'Config Cloudflare réinitialisée'**
+  /// **'Session Cloudflare renouvelée'**
   String get snackCloudflareReset;
 
   /// No description provided for @snackImportError.

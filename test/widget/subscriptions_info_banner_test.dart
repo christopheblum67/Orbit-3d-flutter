@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/subscriptions_screen.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -26,6 +28,8 @@ class _EpgCache extends EPGDataCache {
 }
 
 class _SubscriptionsNotifier extends SubscriptionsNotifier {
+  final deleted = <String>[];
+
   @override
   List<Subscription> build() => [
         Subscription(
@@ -38,6 +42,12 @@ class _SubscriptionsNotifier extends SubscriptionsNotifier {
           createdAt: DateTime(2026),
         ),
       ];
+
+  @override
+  Future<void> deleteSubscription(String id) async {
+    deleted.add(id);
+    state = state.where((subscription) => subscription.id != id).toList();
+  }
 }
 
 class _TestingNotifier extends SubscriptionsTestingNotifier {
@@ -81,6 +91,76 @@ class _DuplicateSubscriptionsNotifier extends SubscriptionsNotifier {
 }
 
 void main() {
+  testWidgets('subscription deletion defaults to delete and supports D-pad',
+      (tester) async {
+    final notifier = _SubscriptionsNotifier();
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const SubscriptionsScreen()),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        subscriptionsProvider.overrideWith(() => notifier),
+        subscriptionsTestingProvider.overrideWith(_TestingNotifier.new),
+        activeSubscriptionProvider.overrideWithValue(null),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final deleteIcon = find.byIcon(Icons.delete);
+    await tester.ensureVisible(deleteIcon);
+    final iconFocus =
+        find.ancestor(of: deleteIcon, matching: find.byType(TvFocus)).first;
+    Focus.of(tester.element(find
+            .descendant(
+              of: iconFocus,
+              matching: find.byType(ExcludeFocus),
+            )
+            .first))
+        .requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+
+    final dialog = find.byType(AlertDialog);
+    final confirm = find.descendant(of: dialog, matching: find.text('Delete'));
+    final cancel = find.descendant(of: dialog, matching: find.text('Cancel'));
+    bool isFocused(Finder finder) => find
+        .descendant(
+          of: find
+              .byWidget(FocusManager.instance.primaryFocus!.context!.widget),
+          matching: finder,
+        )
+        .evaluate()
+        .isNotEmpty;
+    expect(isFocused(confirm), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(isFocused(cancel), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(notifier.deleted, isEmpty);
+    expect(dialog, findsNothing);
+
+    await tester.tap(deleteIcon);
+    await tester.pumpAndSettle();
+    expect(isFocused(confirm), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(isFocused(confirm), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(notifier.deleted, ['sub-1']);
+    expect(dialog, findsNothing);
+  });
+
   testWidgets('subscription form is localized in English', (tester) async {
     final router = GoRouter(routes: [
       GoRoute(path: '/', builder: (_, __) => const SubscriptionsScreen()),

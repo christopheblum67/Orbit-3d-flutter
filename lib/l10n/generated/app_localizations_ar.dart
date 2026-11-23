@@ -2673,11 +2673,14 @@ class AppLocalizationsAr extends AppLocalizations {
       'مزامنة المفضلات والحلقات المشاهدة والأخيرة وتقدّم المشاهدة لهذا التثبيت';
 
   @override
-  String get cloudflareReset => 'إعادة ضبط إعدادات Cloudflare';
+  String get cloudflareReset => 'إعادة ضبط جلسة Cloudflare';
 
   @override
-  String get cloudflareResetSubtitle =>
-      'تعطيل انتحال TLS واستعادة وكيل المستخدم القياسي للمشغل';
+  String get cloudflareResetSubtitle => 'تجديد جلسة Cloudflare النشطة.';
+
+  @override
+  String get cloudflareNoActiveSession =>
+      'لا توجد جلسة Cloudflare نشطة لتجديدها.';
 
   @override
   String get comingSoon => 'قريباً';
@@ -3511,7 +3514,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get snackCacheCleared => 'تم مسح الكاش';
 
   @override
-  String get snackCloudflareReset => 'تمت إعادة ضبط إعدادات Cloudflare';
+  String get snackCloudflareReset => 'تم تجديد جلسة Cloudflare';
 
   @override
   String snackImportError(String message) {

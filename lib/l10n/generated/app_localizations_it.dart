@@ -2764,11 +2764,15 @@ class AppLocalizationsIt extends AppLocalizations {
       'Sincronizza preferiti, episodi visti, recenti e progressi di riproduzione di questa installazione';
 
   @override
-  String get cloudflareReset => 'Azzera configurazione Cloudflare';
+  String get cloudflareReset => 'Reimposta sessione Cloudflare';
 
   @override
   String get cloudflareResetSubtitle =>
-      'Disattiva l\'impersonificazione TLS e ripristina lo User-Agent standard del lettore';
+      'Rinnova la sessione Cloudflare attiva.';
+
+  @override
+  String get cloudflareNoActiveSession =>
+      'Non ci sono sessioni Cloudflare attive da rinnovare.';
 
   @override
   String get comingSoon => 'Prossimamente';
@@ -3617,7 +3621,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get snackCacheCleared => 'Caches svuotate';
 
   @override
-  String get snackCloudflareReset => 'Configurazione Cloudflare azzerata';
+  String get snackCloudflareReset => 'Sessione Cloudflare rinnovata';
 
   @override
   String snackImportError(String message) {

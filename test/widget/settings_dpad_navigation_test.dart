@@ -5,7 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/settings/unified_settings_screen.dart';
+import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
@@ -42,8 +45,9 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Advanced'));
-    await tester.pumpAndSettle();
+    final l = lookupAppLocalizations(const Locale('en'));
+    expect(find.text(l.cloudSyncProfileHelp), findsNothing);
+    expect(find.byIcon(Icons.settings_input_component), findsNothing);
     for (final title in ['Contact', 'Activate app']) {
       await tester.ensureVisible(find.text(title));
       await tester.tap(find.text(title));
@@ -132,6 +136,58 @@ void main() {
   }
 
   for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
+    testWidgets('circular settings fit and retain their labels in $language',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(360, 720);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final router = GoRouter(routes: [
+        GoRoute(path: '/', builder: (_, __) => const UnifiedSettingsScreen()),
+      ]);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+          activeSubscriptionProvider.overrideWith((ref) => null),
+          currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+        ],
+        child: MaterialApp.router(
+          locale: Locale(language),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final l = lookupAppLocalizations(Locale(language));
+      final tile = find
+          .ancestor(
+            of: find.text(l.accountProfiles),
+            matching: find.byType(TvFocus),
+          )
+          .first;
+      final circles = find.descendant(
+        of: tile,
+        matching: find.byWidgetPredicate((widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).shape == BoxShape.circle),
+      );
+      expect(circles, findsOneWidget);
+      expect(
+          tester.widget<Text>(find.text(l.accountProfiles)).maxLines, isNull);
+      expect(tester.widget<Text>(find.text(l.accountProfilesSubtitle)).maxLines,
+          isNull);
+      await tester
+          .ensureVisible(find.byKey(const ValueKey('hidden-advanced-entry')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('network card is localized and editable in $language',
         (tester) async {
       SharedPreferences.setMockInitialValues({});
@@ -161,13 +217,11 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      final tab = find.text('${l.tabNetwork} & ${l.tabSecurity}');
-      await tester.ensureVisible(tab);
-      await tester.tap(tab);
+      await tester.ensureVisible(find.text(l.dnsProvider));
       await tester.pumpAndSettle();
       await tester.tap(find.text(l.dnsProvider));
       await tester.pumpAndSettle();
-      expect(find.text(l.cloudflareReset), findsOneWidget);
+      expect(find.text(l.cloudflareReset), findsNothing);
       await tester.tap(find.byType(DropdownButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('8.8.8.8 (Google DoH)').last);
@@ -182,11 +236,14 @@ void main() {
     testWidgets('compact settings dialogs on ${size.width}x${size.height}',
         (tester) async {
       SharedPreferences.setMockInitialValues({});
+      final tvMode = TvModeNotifier()..enable();
+      addTearDown(tvMode.dispose);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final container = ProviderContainer(overrides: [
+        tvModeNotifierProvider.overrideWithValue(tvMode),
         deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
         activeSubscriptionProvider.overrideWith((ref) => null),
         currentProfileProvider.overrideWithBuild((ref, notifier) => null),
@@ -207,13 +264,12 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Player & Audio'));
-      await tester.tap(find.text('Player & Audio'));
-      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
       final audio = find.text('Audio & Night Focus');
       await tester.ensureVisible(audio);
       await tester.tap(audio);
       await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
       expect(find.byType(AlertDialog), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
@@ -238,21 +294,59 @@ void main() {
               .read(advancedSettingsProvider)
               .nightFocusVolumeNormalization,
           isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(find.byType(AudioControlsSheet), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      for (var i = 0; i < 5; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+      }
+      final minus = find.byTooltip('-50 ms');
+      expect(
+        find.descendant(
+          of: find
+              .byWidget(FocusManager.instance.primaryFocus!.context!.widget),
+          matching: minus,
+        ),
+        findsOneWidget,
+      );
+      final viewport = tester.getRect(find.descendant(
+        of: find.byType(AudioControlsSheet),
+        matching: find.byType(ListView),
+      ));
+      expect(tester.getRect(minus).top, greaterThanOrEqualTo(viewport.top));
+      expect(tester.getRect(minus).bottom, lessThanOrEqualTo(viewport.bottom));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find
+              .byWidget(FocusManager.instance.primaryFocus!.context!.widget),
+          matching: find.text('Bass reduction and limiter'),
+        ),
+        findsOneWidget,
+      );
+      Navigator.of(tester.element(find.byType(AudioControlsSheet))).pop();
+      await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
+      expect(tester.takeException(), isNull);
       final memory = find.text('Memory & Cache');
       await tester.ensureVisible(memory);
       await tester.tap(memory);
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsOneWidget);
+      expect(tester.takeException(), isNull);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Advanced'));
-      await tester.tap(find.text('Advanced'));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Accessibility'));
-      await tester.tap(find.text('Accessibility'));
+      await tester.ensureVisible(find.text('Accessibility').last);
+      await tester.tap(find.text('Accessibility').last);
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
@@ -284,7 +378,7 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Network & Security'));
+    await tester.ensureVisible(find.text('DNS provider (DoH)'));
     await tester.pumpAndSettle();
 
     FocusNode tileFocus(Finder content) {
@@ -304,7 +398,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
-    expect(tileFocus(find.text('Player')).hasFocus, isTrue);
+    expect(tileFocus(find.text('Player').first).hasFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     final checkbox = find.byType(CheckboxListTile);
@@ -323,7 +417,7 @@ void main() {
     expect(container.read(advancedSettingsProvider).subtitlesDisabled, isFalse);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    expect(tileFocus(find.text('Player')).hasFocus, isTrue);
+    expect(tileFocus(find.text('Player').first).hasFocus, isTrue);
   });
 
   test('profile preferences subtitle contains only language and PIN', () {
@@ -343,7 +437,8 @@ void main() {
     }
   });
 
-  testWidgets('settings screen navigates account tiles and tabs with D-pad',
+  testWidgets(
+      'settings screen navigates and scrolls between sections with D-pad',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     final router = GoRouter(routes: [
@@ -374,28 +469,21 @@ void main() {
     expect(first, findsOneWidget);
     expect(second, findsOneWidget);
     expect(find.text('Language, PIN'), findsOneWidget);
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-    await tester.pumpAndSettle();
-    expect(
-      Focus.of(tester.element(find.text('Account'))).hasFocus,
-      isTrue,
-    );
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pumpAndSettle();
-    expect(
-      Focus.of(tester.element(find.text('Network & Security'))).hasFocus,
-      isTrue,
-    );
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
-    expect(first, findsNothing);
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
-    expect(first, findsOneWidget);
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pumpAndSettle();
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.byType(TabBarView), findsNothing);
+    final l = lookupAppLocalizations(const Locale('en'));
+    for (final title in [
+      l.sectionAccountProfile,
+      l.sectionBackup,
+      l.tabNetwork,
+      l.tabPlayer,
+      l.sectionRecommendations,
+      l.sectionDiagnostics,
+    ]) {
+      expect(find.byKey(ValueKey('settings-group-$title')), findsOneWidget);
+    }
+    expect(find.byKey(ValueKey('settings-group-${l.sectionAccessibility}')),
+        findsNothing);
     expect(
       FocusManager.instance.primaryFocus?.context
           ?.findAncestorWidgetOfExactType<TvFocus>(),
@@ -408,9 +496,94 @@ void main() {
           ?.findAncestorWidgetOfExactType<TvFocus>(),
       same(tester.element(second).findAncestorWidgetOfExactType<TvFocus>()),
     );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    final dns = find.text('DNS provider (DoH)');
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<TvFocus>(),
+      same(tester.element(dns).findAncestorWidgetOfExactType<TvFocus>()),
+    );
+    expect(
+      tester.getRect(dns).bottom,
+      lessThanOrEqualTo(tester.getRect(find.byType(TvSafeArea)).bottom),
+    );
+    for (var i = 0; i < 10; i++) {
+      if (FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<TvFocus>() ==
+          tester.element(first).findAncestorWidgetOfExactType<TvFocus>()) {
+        break;
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+    }
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<TvFocus>(),
+      same(tester.element(first).findAncestorWidgetOfExactType<TvFocus>()),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     expect(find.text('OPENED'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty advanced icon requires the existing access code',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const UnifiedSettingsScreen()),
+      GoRoute(
+        path: '/settings/advanced',
+        builder: (_, __) => const Scaffold(body: Text('ADVANCED OPENED')),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+      ],
+      child: MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final entry = find.byKey(const ValueKey('hidden-advanced-entry'));
+    await tester.ensureVisible(entry);
+    await tester.tap(entry);
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '0');
+    await tester.tap(find.text(
+        lookupAppLocalizations(const Locale('en')).advancedAccessConfirm));
+    await tester.pumpAndSettle();
+    expect(find.text('ADVANCED OPENED'), findsNothing);
+    final entryFocus = find.ancestor(of: entry, matching: find.byType(TvFocus));
+    Focus.of(tester.element(find
+            .descendant(of: entryFocus, matching: find.byType(AnimatedBuilder))
+            .first))
+        .requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), kAdvancedSettingsCode);
+    await tester.tap(find.text(
+        lookupAppLocalizations(const Locale('en')).advancedAccessConfirm));
+    await tester.pumpAndSettle();
+    expect(find.text('ADVANCED OPENED'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -77,6 +77,7 @@ void main() {
       expect(find.text('Profil'), findsNothing);
       expect(find.text('enfant'), findsNothing);
       expect(find.text('expert'), findsNothing);
+      expect(find.text('Continuer'), findsNothing);
 
       final scrollable = find
           .descendant(

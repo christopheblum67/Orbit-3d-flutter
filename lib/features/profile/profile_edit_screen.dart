@@ -42,7 +42,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _nameController = TextEditingController();
   final _scrollController = ScrollController();
   late final FocusNode _nameFocus;
-  final _continueFocus = FocusNode(debugLabel: 'profile.continue');
   final _firstGenreFocus = FocusNode(debugLabel: 'profile.firstGenre');
   final _saveFocus = FocusNode(debugLabel: 'profile.save');
   final _identityCardKey = GlobalKey();
@@ -284,7 +283,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ? LogicalKeyboardKey.arrowLeft
             : LogicalKeyboardKey.arrowRight;
         if (_dpadMode && !_nameEditing && key == forward) {
-          _focusContinue();
+          _scrollToNextSection();
           return KeyEventResult.handled;
         }
         if (key == LogicalKeyboardKey.arrowDown || isSelect) {
@@ -301,9 +300,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       });
   }
 
-  void _focusContinue() {
-    _continueFocus.requestFocus();
-    final target = _continueFocus.context;
+  void _focusName() {
+    _nameFocus.requestFocus();
+    final target = _nameFocus.context;
     if (target != null) {
       Scrollable.ensureVisible(
         target,
@@ -344,7 +343,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _nameController.dispose();
     _scrollController.dispose();
     _nameFocus.dispose();
-    _continueFocus.dispose();
     _firstGenreFocus.dispose();
     _saveFocus.dispose();
     super.dispose();
@@ -800,19 +798,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               },
             ),
           ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: TvFocus(
-              focusNode: _continueFocus,
-              onActivate: _scrollToNextSection,
-              child: OutlinedButton.icon(
-                onPressed: _scrollToNextSection,
-                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                label: Text(l.menuContinue),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -840,14 +825,16 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           ),
           const SizedBox(height: 12),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               for (final (index, genre) in _genreOptions.indexed)
                 _ProfileChoiceChip(
                   label: _genreLabel(l, genre),
+                  compact: true,
                   focusNode: index == 0 ? _firstGenreFocus : null,
-                  onUp: index == 0 ? _focusContinue : null,
+                  onUp: index == 0 ? _focusName : null,
                   selected: _favoriteGenres.contains(genre),
                   onTap: () => setState(() {
                     if (_favoriteGenres.contains(genre)) {
@@ -949,6 +936,7 @@ class _ProfileChoiceChip extends StatefulWidget {
     required this.onTap,
     this.focusNode,
     this.onUp,
+    this.compact = false,
   });
 
   final String label;
@@ -956,6 +944,7 @@ class _ProfileChoiceChip extends StatefulWidget {
   final VoidCallback onTap;
   final FocusNode? focusNode;
   final VoidCallback? onUp;
+  final bool compact;
 
   @override
   State<_ProfileChoiceChip> createState() => _ProfileChoiceChipState();
@@ -1001,7 +990,9 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: widget.compact
+              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+              : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             color: highlighted
                 ? scheme.primaryContainer
@@ -1040,7 +1031,7 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
                 child: Text(
                   widget.label,
                   style: TextStyle(
-                    fontSize: 13.5,
+                    fontSize: widget.compact ? 13 : 13.5,
                     fontWeight: FontWeight.w700,
                     color: highlighted
                         ? scheme.onPrimaryContainer
