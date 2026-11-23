@@ -162,27 +162,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(NavigationRail), findsOneWidget);
-      expect(find.byIcon(Icons.menu_rounded), findsNothing);
+      expect(find.byType(NavigationRail), findsNothing);
+      expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
       expect(find.byIcon(Icons.person_outline), findsNothing);
       expect(find.byType(HomeClock), findsOneWidget);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
-      expect(
-        FocusManager.instance.primaryFocus,
-        isNotNull,
-      );
-      expect(
-        FocusManager.instance.primaryFocus!.debugLabel,
-        'Home menu button',
-      );
-
       expect(find.byType(NavigationRail), findsNothing);
       expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
       await tester.pumpAndSettle();
       expect(find.byType(HomeMenuDrawer), findsOneWidget);
       expect(FocusManager.instance.primaryFocus?.debugLabel,

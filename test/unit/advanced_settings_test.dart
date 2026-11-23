@@ -76,7 +76,7 @@ void main() {
     await notifier.load();
 
     await notifier.setTlsImpersonation(false);
-    await notifier.setDnsProvider('9.9.9.9 (Quad9 DoH)');
+    await notifier.setDnsProvider('Automatique (Système)');
     await notifier.setZeroLagPrefetch(false);
     await notifier.setLocalVideoProxy(true);
     await notifier.setNightFocus(true);
@@ -85,7 +85,7 @@ void main() {
     await notifier.setVodSubtitleMode(VodSubtitleMode.forcedOnly);
 
     expect(notifier.state.useTlsImpersonation, isFalse);
-    expect(notifier.state.dnsProvider, '9.9.9.9 (Quad9 DoH)');
+    expect(notifier.state.dnsProvider, 'Automatique (Système)');
     expect(notifier.state.zeroLagPrefetch, isFalse);
     expect(notifier.state.localVideoProxy, isTrue);
     expect(notifier.state.nightFocusEnabled, isTrue);
@@ -97,7 +97,7 @@ void main() {
     expect(prefs.getBool(AdvancedSettings.kTlsImpersonation), isFalse);
     expect(
       prefs.getString(AdvancedSettings.kDnsProvider),
-      '9.9.9.9 (Quad9 DoH)',
+      'Automatique (Système)',
     );
     expect(prefs.getBool(AdvancedSettings.kZeroLagPrefetch), isFalse);
     expect(prefs.getBool(AdvancedSettings.kLocalVideoProxy), isTrue);
@@ -114,12 +114,31 @@ void main() {
     final reloaded = reloadedContainer.read(advancedSettingsProvider.notifier);
     await reloaded.load();
     expect(reloaded.state.useTlsImpersonation, isFalse);
-    expect(reloaded.state.dnsProvider, '9.9.9.9 (Quad9 DoH)');
+    expect(reloaded.state.dnsProvider, 'Automatique (Système)');
     expect(reloaded.state.zeroLagPrefetch, isFalse);
     expect(reloaded.state.localVideoProxy, isTrue);
     expect(reloaded.state.nightFocusEnabled, isTrue);
     expect(reloaded.state.nightFocusVocalGainDb, 6.0);
     expect(reloaded.state.vodSubtitleMode, VodSubtitleMode.forcedOnly);
+  });
+
+  test('Quad9 enregistré ou importé est remplacé par Cloudflare', () async {
+    SharedPreferences.setMockInitialValues({
+      AdvancedSettings.kDnsProvider: '9.9.9.9 (Quad9 DoH)',
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(advancedSettingsProvider.notifier);
+    await notifier.load();
+    const cloudflare = '1.1.1.1 (Cloudflare DoH)';
+    final prefs = await SharedPreferences.getInstance();
+    expect(notifier.state.dnsProvider, cloudflare);
+    expect(prefs.getString(AdvancedSettings.kDnsProvider), cloudflare);
+    await notifier.importFromJson(
+      const AdvancedSettings(dnsProvider: '9.9.9.9 (Quad9 DoH)'),
+    );
+    expect(notifier.state.dnsProvider, cloudflare);
+    expect(prefs.getString(AdvancedSettings.kDnsProvider), cloudflare);
   });
 
   test('moteurs et secours sauvegardés sont relus pour chaque type', () async {
@@ -164,7 +183,8 @@ void main() {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     final notifier = container.read(advancedSettingsProvider.notifier);
-    await notifier.importFromJson(const AdvancedSettings(localVideoProxy: true));
+    await notifier
+        .importFromJson(const AdvancedSettings(localVideoProxy: true));
     final reloadedContainer = ProviderContainer();
     addTearDown(reloadedContainer.dispose);
     final reloaded = reloadedContainer.read(advancedSettingsProvider.notifier);

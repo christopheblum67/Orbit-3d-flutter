@@ -789,12 +789,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
-  /// Ordre des User-Agents à tenter à la lecture. Quand l'impersonation TLS
-  /// est active (réglage avancé), on privilégie l'User-Agent navigateur
-  /// (index 0) ; sinon on tente d'abord l'Agent natif ExoPlayer.
+  /// Privilégie automatiquement l'agent navigateur avant les alternatives.
   List<int> _userAgentOrder() {
     return playbackUserAgentOrder(
-      tlsImpersonation: ref.read(advancedSettingsProvider).useTlsImpersonation,
+      tlsImpersonation: true,
     );
   }
 
@@ -835,9 +833,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     var variants = streamUrlVariants(_activeStreamUrl);
     if (manager.isReady) {
-      variants = variants
-          .map((u) => _relayForPlayback(u, proxyReady: true))
-          .toList();
+      variants =
+          variants.map((u) => _relayForPlayback(u, proxyReady: true)).toList();
     }
     return variants;
   }
@@ -911,11 +908,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     if (controller != null) unawaited(_disposeController(controller));
   }
 
-  Future<bool> _tryPlay(
-    int gen,
-    String url, {
-    bool bypassOptionalProxy = false,
-  }) async {
+  Future<bool> _tryPlay(int gen, String url) async {
     // Chaque tentative repart d'un état de refus neutre : le drapeau est
     // réarmé par le limiteur si, et seulement si, ce nouvel essai
     // est lui aussi refusé.
@@ -968,15 +961,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         _protectedPlaybackUnsupported = true;
         return false;
       }
-      final useProxy = protectedRoute == ProtectedPlaybackRoute.proxy ||
-          (!bypassOptionalProxy &&
-              !widget.isLocalFile &&
-              ref.read(advancedSettingsProvider).localVideoProxy &&
-              (widget.contentType == PlaybackContentType.vod ||
-                  widget.contentType == PlaybackContentType.series) &&
-              !(playbackUri.host == kRustProxyHost &&
-                  playbackUri.port == kRustProxyPort) &&
-              !playbackUri.path.toLowerCase().endsWith('.mpd'));
+      final useProxy = protectedRoute == ProtectedPlaybackRoute.proxy;
       if (useProxy) {
         try {
           if (_localVideoProxy == null) {
@@ -1039,10 +1024,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           _controller = null;
           await _disposeController(controller);
           if (!mounted || gen != _generation) return false;
-          if (protectedRoute == ProtectedPlaybackRoute.direct &&
-              !bypassOptionalProxy) {
-            return _tryPlay(gen, url, bypassOptionalProxy: true);
-          }
           _protectedPlaybackUnsupported = true;
           return false;
         }
@@ -1082,18 +1063,15 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           _controller = null;
           await _disposeController(controller);
           if (!mounted || gen != _generation) return false;
-          if (protectedRoute == ProtectedPlaybackRoute.direct &&
-              !bypassOptionalProxy) {
-            return _tryPlay(gen, url, bypassOptionalProxy: true);
-          }
           _protectedPlaybackUnsupported = true;
           return false;
         }
         debugPrint('Orbit3D video error');
         if (isPlaybackDecoderError(controller.value.errorDescription)) {
-          _lastErrorDescription = _proxySessions[controller]?.unsupportedDash == true
-              ? protectedPlaybackUnsupported
-              : controller.value.errorDescription;
+          _lastErrorDescription =
+              _proxySessions[controller]?.unsupportedDash == true
+                  ? protectedPlaybackUnsupported
+                  : controller.value.errorDescription;
           _decoderInitializationError = true;
           _controller = null;
           await _disposeController(controller);

@@ -44,38 +44,6 @@ class EPGPreviewHeader extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Zone aperçu vidéo
-            SizedBox(
-              width: 280,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  color: Colors.black,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.play_circle_outline,
-                          color: Colors.white54,
-                          size: 48,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'APERÇU FLUX LIVE\n${channel.name}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 20),
             // Détails programme
             Expanded(
               child: Column(

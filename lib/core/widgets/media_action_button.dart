@@ -8,6 +8,7 @@ class MediaActionButton extends StatefulWidget {
     required this.label,
     required this.isTvLayout,
     this.autofocus = false,
+    this.focusNode,
   });
 
   final VoidCallback? onPressed;
@@ -15,6 +16,7 @@ class MediaActionButton extends StatefulWidget {
   final String label;
   final bool isTvLayout;
   final bool autofocus;
+  final FocusNode? focusNode;
 
   @override
   State<MediaActionButton> createState() => _MediaActionButtonState();
@@ -31,6 +33,7 @@ class _MediaActionButtonState extends State<MediaActionButton> {
       duration: const Duration(milliseconds: 150),
       child: FilledButton.icon(
         autofocus: widget.autofocus,
+        focusNode: widget.focusNode,
         onPressed: widget.onPressed,
         onFocusChange: (focused) => setState(() => _focused = focused),
         icon: Icon(widget.icon, size: widget.isTvLayout ? 22.5 : 20),

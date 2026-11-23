@@ -1,7 +1,7 @@
 name: orbit_3d_flutter
 description: 3D Orbit Visualization Application
 publish_to: 'none'
-version: 1.0.7+8
+version: 1.0.8+9
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

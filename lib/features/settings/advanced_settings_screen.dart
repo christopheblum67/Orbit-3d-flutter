@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/core/widgets/dpad_scope.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/widevine_config_tile.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
@@ -91,10 +92,11 @@ Future<bool> requestAdvancedAccess(BuildContext context) async {
     ),
   );
 
+  final code = controller.text.trim();
   controller.dispose();
   if (accepted != true) return false;
 
-  if (controller.text.trim() == kAdvancedSettingsCode) return true;
+  if (code == kAdvancedSettingsCode) return true;
 
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -217,8 +219,8 @@ class _AdvancedSettingsScreenState
         title: Text(l.advancedSettingsTitle),
       ),
       body: TvSafeArea(
-        child: DpadScope(
-          child: ListView(
+          child: DpadScope(
+              child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
@@ -235,6 +237,9 @@ class _AdvancedSettingsScreenState
           const TmdbApiKeyTile(),
           const SizedBox(height: 24),
           const ForceNoSubtitlesTile(),
+          const SizedBox(height: 24),
+          SettingsSectionTitle(l.settingsProtectedPlayback),
+          const WidevineConfigTile(),
           const SizedBox(height: 24),
           SettingsSectionTitle(l.profileProtection),
           Text(

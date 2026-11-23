@@ -246,6 +246,12 @@ class AdvancedSettings {
 }
 
 class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
+  static const _cloudflareDns = '1.1.1.1 (Cloudflare DoH)';
+  static const _removedQuad9Dns = '9.9.9.9 (Quad9 DoH)';
+
+  static String _supportedDns(String value) =>
+      value == _removedQuad9Dns ? _cloudflareDns : value;
+
   @override
   AdvancedSettings build() => const AdvancedSettings();
 
@@ -254,11 +260,15 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _prefs = prefs;
+    final storedDns = prefs.getString(AdvancedSettings.kDnsProvider);
+    final dns = _supportedDns(storedDns ?? _cloudflareDns);
+    if (storedDns == _removedQuad9Dns) {
+      await prefs.setString(AdvancedSettings.kDnsProvider, dns);
+    }
     state = AdvancedSettings(
       useTlsImpersonation:
           prefs.getBool(AdvancedSettings.kTlsImpersonation) ?? true,
-      dnsProvider: prefs.getString(AdvancedSettings.kDnsProvider) ??
-          '1.1.1.1 (Cloudflare DoH)',
+      dnsProvider: dns,
       zeroLagPrefetch: prefs.getBool(AdvancedSettings.kZeroLagPrefetch) ?? true,
       localVideoProxy:
           prefs.getBool(AdvancedSettings.kLocalVideoProxy) ?? false,
@@ -325,8 +335,9 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
   }
 
   Future<void> setDnsProvider(String value) async {
-    state = state.copyWith(dnsProvider: value);
-    await _persistString(AdvancedSettings.kDnsProvider, value);
+    final dns = _supportedDns(value);
+    state = state.copyWith(dnsProvider: dns);
+    await _persistString(AdvancedSettings.kDnsProvider, dns);
   }
 
   Future<void> setPlayerPrimary(
@@ -469,6 +480,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
   }
 
   Future<void> importFromJson(AdvancedSettings imported) async {
+    imported =
+        imported.copyWith(dnsProvider: _supportedDns(imported.dnsProvider));
     state = imported;
     await _persistBool(
       AdvancedSettings.kTlsImpersonation,

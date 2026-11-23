@@ -26,7 +26,6 @@ import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart'
     show showPlayerEngineConfigSheet;
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
-import 'package:orbit_3d_flutter/features/settings/widgets/widevine_config_tile.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/update_dialog.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
@@ -456,14 +455,11 @@ class _NetworkSecuritySection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
     // Hoisté : partagé entre l'appui tactile (`onTap`) et l'activation TV
     // (`TvFocus.onActivate`), une seule et même définition.
     Future<void> resetCloudflare() async {
       final session = ref.read(cloudflareSessionProvider);
       try {
-        await n.setTlsImpersonation(false);
         if (session.isReady) await session.renewSession(force: true);
       } catch (_) {
         if (context.mounted) {
@@ -490,27 +486,6 @@ class _NetworkSecuritySection extends ConsumerWidget {
         children: [
           // ── Groupe RÉSEAU (anti-throttle, DNS, Cloudflare) ──
           SettingsGroupDivider(l.tabNetwork, icon: Icons.wifi_tethering),
-          SettingsSectionTitle(l.sectionAntiThrottle),
-          TvFocus(
-            onActivate: () => n.setTlsImpersonation(!s.useTlsImpersonation),
-            child: SettingsSwitchTile(
-              title: l.tlsImpersonation,
-              subtitle: l.tlsImpersonationSubtitle,
-              value: s.useTlsImpersonation,
-              onChanged: n.setTlsImpersonation,
-              icon: Icons.shield_outlined,
-            ),
-          ),
-          TvFocus(
-            onActivate: () => n.setLocalVideoProxy(!s.localVideoProxy),
-            child: SettingsSwitchTile(
-              title: l.localVideoProxy,
-              subtitle: l.localVideoProxySubtitle,
-              value: s.localVideoProxy,
-              onChanged: n.setLocalVideoProxy,
-              icon: Icons.router_outlined,
-            ),
-          ),
           // `_DnsProviderTile` : le `DropdownButton` porte déjà son propre
           // nœud de focus (Enter ouvre la liste nativement) ; le wrapper
           // parent est `canRequestFocus: false`. Pas de `TvFocus` ici pour ne
@@ -529,17 +504,6 @@ class _NetworkSecuritySection extends ConsumerWidget {
           ),
           // ── Groupe SÉCURITÉ (contrôle parental, résilience, mentions) ──
           SettingsGroupDivider(l.tabSecurity, icon: Icons.lock_outline),
-          SettingsSectionTitle(l.sectionParental),
-          _NavTile(
-            icon: Icons.gpp_good_outlined,
-            title: l.parentalControl,
-            subtitle: l.parentalControlSubtitle,
-            onTap: () => context.go('/parental'),
-          ),
-          const SizedBox(height: 16),
-          SettingsSectionTitle(l.settingsProtectedPlayback),
-          const WidevineConfigTile(),
-          const SizedBox(height: 16),
           SettingsSectionTitle(l.sectionLegal),
           _NavTile(
             icon: Icons.balance_outlined,
@@ -559,7 +523,6 @@ class _DnsProviderTile extends ConsumerWidget {
   static const _options = <String>[
     '1.1.1.1 (Cloudflare DoH)',
     '8.8.8.8 (Google DoH)',
-    '9.9.9.9 (Quad9 DoH)',
     'Automatique (Système)',
   ];
 
@@ -1069,12 +1032,6 @@ class _AdvancedSection extends ConsumerWidget {
               subtitle: l.updateSettingsSubtitle,
               onTap: () => showUpdateDialog(context),
             ),
-          _NavTile(
-            icon: Icons.bug_report_outlined,
-            title: l.logsDiagnostic,
-            subtitle: l.logsDiagnosticSubtitle,
-            onTap: () => context.go('/diagnostic'),
-          ),
           _NavTile(
             icon: Icons.cleaning_services_outlined,
             title: l.clearCaches,

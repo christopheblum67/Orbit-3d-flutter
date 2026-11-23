@@ -615,26 +615,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildBottomBar(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final compact = MediaQuery.sizeOf(context).width < 600;
     final bar = Row(
       textDirection: TextDirection.ltr,
-      mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
       children: [
-        _SubStatusChip(
-          onOpenSubscriptions: () => context.go('/subscriptions'),
-        ),
-        const SizedBox(width: 10),
-        _UpdateButton(
-          focusNode: _bottomBarFocus,
-          tooltip: l.updateAllData,
-          onPressed: _refreshAll,
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _SubStatusChip(
+                  onOpenSubscriptions: () => context.go('/subscriptions'),
+                ),
+                const SizedBox(width: 10),
+                _UpdateButton(
+                  focusNode: _bottomBarFocus,
+                  tooltip: l.updateAllData,
+                  onPressed: _refreshAll,
+                ),
+                const SizedBox(width: 8),
+                const _LastRefreshLabel(),
+              ],
+            ),
+          ),
         ),
         const SizedBox(width: 8),
-        if (compact)
-          const SizedBox(width: 120, child: _LastRefreshLabel())
-        else
-          const Flexible(child: _LastRefreshLabel()),
-        if (compact) const SizedBox(width: 12) else const Spacer(),
         const _ProfileShortcut(),
         const SizedBox(width: 8),
         _SettingsShortcut(
@@ -665,10 +669,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           }
           return KeyEventResult.ignored;
         },
-        child: compact
-            ? SingleChildScrollView(
-                scrollDirection: Axis.horizontal, child: bar)
-            : bar,
+        child: bar,
       ),
     );
   }

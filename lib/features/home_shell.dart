@@ -24,32 +24,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       GlobalKey<HomeMenuDrawerState>();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final FocusNode _menuFocusNode = FocusNode(debugLabel: 'Home menu button');
-  late final TvModeNotifier _tvMode;
-
-  @override
-  void initState() {
-    super.initState();
-    _tvMode = ref.read(tvModeNotifierProvider);
-    _tvMode.addListener(_onTvModeChanged);
-    if (_tvMode.enabled) _focusMenuButton();
-  }
-
-  void _onTvModeChanged() {
-    if (_tvMode.enabled) _focusMenuButton();
-  }
-
-  void _focusMenuButton() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_tvMode.enabled) return;
-      if (GoRouterState.of(context).uri.path == '/home') {
-        _menuFocusNode.requestFocus();
-      }
-    });
-  }
-
   @override
   void dispose() {
-    _tvMode.removeListener(_onTvModeChanged);
     _menuFocusNode.dispose();
     super.dispose();
   }
@@ -64,19 +40,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final tvMode = ref.watch(tvModeNotifierProvider);
 
     final entries = _navEntries(isM3u, l);
-    final railEntries = _railEntries(isM3u, l);
     final selectedIndex = _indexFor(location, entries);
-    final railIndex = _indexFor(location, railEntries);
 
     return ListenableBuilder(
       listenable: tvMode,
       builder: (context, _) {
-        final showNavigationRail = isWide && !tvMode.enabled;
-        final showTvMenuOverlay =
-            tvMode.enabled && !showNavigationRail && location != '/home';
+        final showTvMenuOverlay = tvMode.enabled && location != '/home';
         final scaffold = Scaffold(
           key: _scaffoldKey,
-          drawer: showNavigationRail ? null : HomeMenuDrawer(key: _drawerKey),
+          drawer: HomeMenuDrawer(key: _drawerKey),
           onDrawerChanged: (isOpened) {
             if (isOpened) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -86,16 +58,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           },
           appBar: location == '/home'
               ? AppBar(
-                  leading: showNavigationRail
-                      ? null
-                      : Opacity(
-                          opacity: tvMode.enabled ? 0 : 1,
-                          alwaysIncludeSemantics: true,
-                          child: DrawerMenuButton(
-                            focusNode: _menuFocusNode,
-                            autofocus: tvMode.enabled,
-                          ),
-                        ),
+                  leading: Opacity(
+                    opacity: 0,
+                    alwaysIncludeSemantics: true,
+                    child: DrawerMenuButton(
+                      focusNode: _menuFocusNode,
+                    ),
+                  ),
                   title: Text(_titleForPath(context, location)),
                   actions: const [
                     Padding(
@@ -107,46 +76,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               : null,
           body: Row(
             children: [
-              if (showNavigationRail)
-                NavigationRail(
-                  selectedIndex: railIndex,
-                  onDestinationSelected: (index) {
-                    context.go(railEntries[index].route);
-                  },
-                  labelType: NavigationRailLabelType.all,
-                  leading: Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 4),
-                    child: Icon(Icons.live_tv, size: 28, color: scheme.primary),
-                  ),
-                  backgroundColor: scheme.surfaceContainerLow,
-                  indicatorColor: scheme.primaryContainer,
-                  selectedIconTheme:
-                      IconThemeData(color: scheme.onPrimaryContainer),
-                  unselectedIconTheme:
-                      IconThemeData(color: scheme.onSurfaceVariant),
-                  selectedLabelTextStyle: TextStyle(
-                    color: scheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                  ),
-                  unselectedLabelTextStyle: TextStyle(
-                    color: scheme.onSurfaceVariant,
-                    fontSize: 11,
-                  ),
-                  destinations: [
-                    for (final e in railEntries)
-                      NavigationRailDestination(
-                        icon: Icon(e.icon),
-                        label: Text(e.label),
-                      ),
-                  ],
-                ),
-              if (showNavigationRail)
-                VerticalDivider(
-                  width: 1,
-                  thickness: 1,
-                  color: scheme.outlineVariant.withValues(alpha: 0.3),
-                ),
               Expanded(
                 child: Stack(
                   children: [
@@ -310,23 +239,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final label = entry.shortLabel ?? entry.label.replaceAll('\n', ' ').trim();
     if (label.length <= 9) return label;
     return '${label.substring(0, 8).trimRight()}.';
-  }
-
-  /// Entrées du rail (navigation large) : même base que la barre inférieure,
-  /// avec l'accès EPG inséré après « Chaînes TV ».
-  static List<_NavEntry> _railEntries(bool isM3u, AppLocalizations l) {
-    final base = _navEntries(isM3u, l)
-        .where((entry) => entry.route != '/profiles')
-        .toList();
-    return [
-      ...base.take(2),
-      const _NavEntry(
-        icon: Icons.calendar_today,
-        label: 'EPG',
-        route: '/epg',
-      ),
-      ...base.skip(2),
-    ];
   }
 
   /// Index de l'entrée dont la route est un préfixe de la position courante.

@@ -314,6 +314,9 @@ void main() {
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
+    expect(_trackFocus(tester, 'Automatic').hasPrimaryFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
     expect(_trackFocus(tester, 'HD').hasPrimaryFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
@@ -393,7 +396,7 @@ void main() {
       ));
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
-      final wideLandscape = size.width > size.height && size.width >= 420;
+      final wideLandscape = size.width > size.height;
       expect(find.byType(ListView), findsNWidgets(wideLandscape ? 3 : 1));
       expect(find.text('Kein Audiotrack erkannt'), findsOneWidget);
       expect(tester.takeException(), isNull);

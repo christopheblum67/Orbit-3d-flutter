@@ -29,13 +29,17 @@ Future<void> showStreamDetailsSheet(
         builder: (context, constraints) => Dialog(
           insetPadding: const EdgeInsets.all(12),
           clipBehavior: Clip.antiAlias,
+          backgroundColor:
+              Theme.of(context).colorScheme.surface.withValues(alpha: 0.88),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: math.max(0, constraints.maxHeight - 24),
             ),
             child: SizedBox(
               key: const ValueKey('live-stream-details-panel'),
-              width: math.min(820, math.max(0, constraints.maxWidth - 24)),
+              width: MediaQuery.orientationOf(context) == Orientation.landscape
+                  ? math.min(410, math.max(0, constraints.maxWidth - 24))
+                  : math.min(820, math.max(0, constraints.maxWidth - 24)),
               child: StreamDetailsSheet(
                 controller: controller,
                 mediaKey: mediaKey,
@@ -50,10 +54,21 @@ Future<void> showStreamDetailsSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    builder: (_) => StreamDetailsSheet(
-      controller: controller,
-      mediaKey: mediaKey,
+    backgroundColor: Colors.transparent,
+    builder: (context) => Align(
+      alignment: Alignment.bottomRight,
+      child: SizedBox(
+        width: MediaQuery.orientationOf(context) == Orientation.landscape
+            ? MediaQuery.sizeOf(context).width * 0.5
+            : MediaQuery.sizeOf(context).width,
+        child: Material(
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.88),
+          child: StreamDetailsSheet(
+            controller: controller,
+            mediaKey: mediaKey,
+          ),
+        ),
+      ),
     ),
   );
 }
@@ -283,7 +298,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.78,
+          maxHeight: MediaQuery.of(context).size.height * 0.45,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -298,6 +313,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                   Expanded(
                     child: Text(
                       l.streamDetails,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -364,23 +381,30 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                               ];
                               final landscape =
                                   MediaQuery.orientationOf(context) ==
-                                          Orientation.landscape &&
-                                      constraints.maxWidth >= 420;
+                                      Orientation.landscape;
                               if (landscape) {
-                                return Row(
+                                return SingleChildScrollView(
                                   key: const ValueKey(
                                     'stream-details-landscape',
                                   ),
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    _landscapeSection(l.audioSection, audio),
-                                    _landscapeSection(l.videoSection, video),
-                                    _landscapeSection(
-                                      l.subtitleSection,
-                                      subtitles,
+                                  scrollDirection: Axis.horizontal,
+                                  child: SizedBox(
+                                    height: constraints.maxHeight,
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        _landscapeSection(
+                                            l.audioSection, audio),
+                                        _landscapeSection(
+                                            l.videoSection, video),
+                                        _landscapeSection(
+                                          l.subtitleSection,
+                                          subtitles,
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 );
                               }
                               return ListView(
@@ -445,7 +469,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
             ),
       ];
 
-  Widget _landscapeSection(String title, List<Widget> items) => Expanded(
+  Widget _landscapeSection(String title, List<Widget> items) => SizedBox(
+        width: 210,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

@@ -18,7 +18,7 @@ import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 
 /// Page intermédiaire d'un épisode de série : infos + boutons « Démarrer »
 /// et « Reprendre » (si une progression de lecture existe pour l'épisode).
-class EpisodeDetailScreen extends ConsumerWidget {
+class EpisodeDetailScreen extends ConsumerStatefulWidget {
   const EpisodeDetailScreen({
     super.key,
     required this.series,
@@ -27,6 +27,40 @@ class EpisodeDetailScreen extends ConsumerWidget {
 
   final Series series;
   final Episode episode;
+
+  @override
+  ConsumerState<EpisodeDetailScreen> createState() =>
+      _EpisodeDetailScreenState();
+}
+
+class _EpisodeDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
+  Series get series => widget.series;
+  Episode get episode => widget.episode;
+  final FocusNode _resumeFocus = FocusNode(debugLabel: 'Resume episode');
+  bool _waitingForResumeFocus = false;
+
+  @override
+  void dispose() {
+    _resumeFocus.dispose();
+    super.dispose();
+  }
+
+  void _focusResumeIfReady() {
+    if (!_waitingForResumeFocus ||
+        !mounted ||
+        ModalRoute.of(context)?.isCurrent != true) return;
+    final id = _progressId(ref.read(currentProfileProvider)?.id ?? '');
+    if (ref.read(playbackProgressServiceProvider).get(id)?.hasProgress !=
+        true) {
+      return;
+    }
+    _waitingForResumeFocus = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+        _resumeFocus.requestFocus();
+      }
+    });
+  }
 
   String _progressId(String profileId) =>
       PlaybackProgressService.idForProfile(profileId, 'episode-${episode.id}');
@@ -53,17 +87,17 @@ class EpisodeDetailScreen extends ConsumerWidget {
         streamUrl: episode.streamUrl,
       );
 
-  void _openPlayer(
+  Future<void> _openPlayer(
     BuildContext context,
     WidgetRef ref, {
     required String progressId,
     int? positionMs,
-  }) {
+  }) async {
     if (episode.streamUrl.isEmpty) return;
     final label = _label(AppLocalizations.of(context));
     // Le statut « vu » est décidé par la progression : il n'est posé qu'à
     // 80 % regardés (voir `_saveProgress` du player). Rien à enregistrer ici.
-    context.push(
+    await context.push(
       '/player',
       extra: PlayerRouteData(
         streamUrl: episode.streamUrl,
@@ -83,10 +117,16 @@ class EpisodeDetailScreen extends ConsumerWidget {
         episode: episode,
       ),
     );
+    if (!mounted) return;
+    _waitingForResumeFocus = true;
+    _focusResumeIfReady();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    ref.listen(playbackProgressServiceProvider, (_, __) {
+      _focusResumeIfReady();
+    });
     final l = AppLocalizations.of(context);
     final label = _label(l);
     final progressId = _progressId(ref.watch(currentProfileProvider)?.id ?? '');
@@ -213,6 +253,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
                     isTvLayout: isTvLayout,
                   ),
                   MediaActionButton(
+                    focusNode: _resumeFocus,
                     autofocus: hasProgress && episode.streamUrl.isNotEmpty,
                     onPressed: hasProgress && episode.streamUrl.isNotEmpty
                         ? () => _openPlayer(
