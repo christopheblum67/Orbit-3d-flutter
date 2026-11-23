@@ -57,6 +57,7 @@ class _EpgTimelineState extends State<EpgTimeline> {
           size: Size(double.infinity, widget.height),
           painter: _EpgTimelinePainter(
             controller: controller,
+            scheme: Theme.of(context).colorScheme,
             repaint: Listenable.merge([
               controller.gridOffset,
               controller.now,
@@ -70,12 +71,19 @@ class _EpgTimelineState extends State<EpgTimeline> {
 
 class _EpgTimelinePainter extends CustomPainter {
   final EpgTimelineController controller;
+  final ColorScheme scheme;
 
-  _EpgTimelinePainter({required this.controller, super.repaint});
+  _EpgTimelinePainter({
+    required this.controller,
+    required this.scheme,
+    super.repaint,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final bg = Paint()..color = const Color(0xFF0D0E12);
+    final isDark = scheme.brightness == Brightness.dark;
+    final bg = Paint()
+      ..color = isDark ? const Color(0xFF0D0E12) : scheme.surface;
     canvas.drawRect(Offset.zero & size, bg);
 
     final offset = controller.gridOffset.value;
@@ -102,10 +110,11 @@ class _EpgTimelinePainter extends CustomPainter {
     );
 
     final majorLine = Paint()
-      ..color = Colors.white24
+      ..color = isDark ? Colors.white24 : scheme.outlineVariant
       ..strokeWidth = 1;
     final minorLine = Paint()
-      ..color = Colors.white10
+      ..color =
+          isDark ? Colors.white10 : scheme.outlineVariant.withValues(alpha: 0.5)
       ..strokeWidth = 0.5;
 
     // Graduations + libellés toutes les 2 heures (blocs de 2h).
@@ -138,8 +147,8 @@ class _EpgTimelinePainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text: '${win.hour.toString().padLeft(2, '0')}:00',
-          style: const TextStyle(
-            color: Colors.white54,
+          style: TextStyle(
+            color: isDark ? Colors.white54 : scheme.onSurfaceVariant,
             fontSize: 10,
             fontWeight: FontWeight.w500,
           ),
@@ -173,6 +182,7 @@ class _EpgTimelinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _EpgTimelinePainter old) =>
       old.controller != controller ||
+      old.scheme != scheme ||
       old.controller.now.value != controller.now.value ||
       old.controller.gridOffset.value != controller.gridOffset.value;
 }

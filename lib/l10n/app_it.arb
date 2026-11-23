@@ -657,6 +657,8 @@
     "cloudflareReset":  "Azzera configurazione Cloudflare",
     "cloudflareResetSubtitle":  "Disattiva l\u0027impersonificazione TLS e ripristina lo User-Agent standard del lettore",
     "comingSoon":  "Prossimamente",
+    "settingsContact": "Contatto",
+    "settingsActivateApp": "Attiva app",
     "confirmAndContinue":  "Conferma e continua",
     "coverCacheCleared":  "Cache delle copertine svuotata.",
     "createKidProfile":  "Crea un profilo bambino",

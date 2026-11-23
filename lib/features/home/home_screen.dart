@@ -299,6 +299,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final multiTvEnabled =
         ref.watch(currentProfileProvider.select((p) => p?.multiTvEnabled)) ??
             true;
@@ -313,7 +315,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         if (!didPop) _confirmExit(context);
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF0E1117),
+        backgroundColor:
+            isDark ? const Color(0xFF0E1117) : theme.scaffoldBackgroundColor,
         body: TvKeyHandlerWrapper(
           onPlayPause: () {
             for (final item in items) {
@@ -468,6 +471,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildCard(_OrbitItem item, bool focused, bool hasFocus) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final scheme = theme.colorScheme;
+        final accent = isDark ? item.color : _lightAccent(item.color);
         final size = constraints.biggest.shortestSide.clamp(0.0, 290.0);
         return Center(
           child: GestureDetector(
@@ -478,11 +485,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               height: size,
               padding: EdgeInsets.all(size * 0.1),
               decoration: BoxDecoration(
-                color:
-                    focused ? const Color(0xFF1E222D) : const Color(0xFF141720),
+                color: isDark
+                    ? (focused
+                        ? const Color(0xFF1E222D)
+                        : const Color(0xFF141720))
+                    : (focused
+                        ? scheme.surfaceContainerHighest
+                        : scheme.surfaceContainerLow),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: focused ? item.color : Colors.white10,
+                  color: focused
+                      ? accent
+                      : (isDark ? Colors.white10 : scheme.outlineVariant),
                   width: focused ? 2.5 : 1,
                 ),
                 boxShadow: hasFocus
@@ -505,11 +519,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         Container(
                           padding: EdgeInsets.all(size * 0.045),
                           decoration: BoxDecoration(
-                            color: item.color.withValues(alpha: 0.15),
+                            color: accent.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(item.icon,
-                              size: size * 0.2, color: item.color),
+                          child:
+                              Icon(item.icon, size: size * 0.2, color: accent),
                         ),
                         SizedBox(height: size * 0.045),
                         Text(
@@ -520,7 +534,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           style: TextStyle(
                             fontSize: (size * 0.075).clamp(12.0, 22.0),
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: isDark ? Colors.white : scheme.onSurface,
                           ),
                         ),
                         SizedBox(height: size * 0.025),
@@ -533,7 +547,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: (size * 0.045).clamp(10.0, 13.0),
-                              color: Colors.white.withValues(alpha: 0.5),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.5)
+                                  : scheme.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -556,8 +572,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               horizontal: 8, vertical: 4),
                           child: Text(
                             AppLocalizations.of(context).comingSoon,
-                            style: const TextStyle(
-                              color: Colors.white70,
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white70
+                                  : scheme.onSurfaceVariant,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                             ),
@@ -627,6 +645,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildBottomBar(BuildContext context, List<_OrbitItem> items) {
     final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final bar = Row(
       textDirection: TextDirection.ltr,
       children: [
@@ -664,9 +684,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF12151E),
+        color: isDark
+            ? const Color(0xFF12151E)
+            : theme.colorScheme.surfaceContainer,
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          top: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : theme.colorScheme.outlineVariant,
+          ),
         ),
       ),
       child: Focus(
@@ -737,6 +763,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 }
 
+Color _lightAccent(Color color) {
+  var hsl = HSLColor.fromColor(color);
+  while (hsl.toColor().computeLuminance() > 0.18 && hsl.lightness > 0.05) {
+    hsl = hsl.withLightness((hsl.lightness - 0.02).clamp(0.0, 1.0));
+  }
+  return hsl.toColor();
+}
+
 class _SubStatusChip extends ConsumerWidget {
   const _SubStatusChip({
     required this.onOpenSubscriptions,
@@ -750,6 +784,9 @@ class _SubStatusChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sub = ref.watch(activeSubscriptionProvider);
     final scheme = Theme.of(context).colorScheme;
+    final accent = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF00CFE8)
+        : _lightAccent(const Color(0xFF00CFE8));
     final name = sub?.name ?? '';
     final validity = sub?.validityLabel ?? '';
     if (name.isEmpty) {
@@ -808,16 +845,16 @@ class _SubStatusChip extends ConsumerWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
+                  color: accent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
+                    color: accent.withValues(alpha: 0.4),
                   ),
                 ),
                 child: Text(
                   AppLocalizations.of(context).homeManageSubscription,
-                  style: const TextStyle(
-                    color: Color(0xFF00CFE8),
+                  style: TextStyle(
+                    color: accent,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
@@ -840,6 +877,10 @@ class _NoSubscriptionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = isDark
+        ? const Color(0xFF00CFE8)
+        : _lightAccent(const Color(0xFF00CFE8));
     return IntrinsicHeight(
         child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -863,7 +904,9 @@ class _NoSubscriptionChip extends StatelessWidget {
               Text(
                 AppLocalizations.of(context).homeNoSubscription,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.5)
+                      : scheme.onSurfaceVariant,
                   fontSize: 13,
                 ),
               ),
@@ -883,16 +926,16 @@ class _NoSubscriptionChip extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
+                  color: accent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
+                    color: accent.withValues(alpha: 0.4),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Gestion Abonnement',
                   style: TextStyle(
-                    color: Color(0xFF00CFE8),
+                    color: accent,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
@@ -915,6 +958,8 @@ class _ProfileShortcut extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final profile = ref.watch(currentProfileProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final label = profile?.firstName.trim();
     final displayName = label == null || label.isEmpty ? l.menuProfile : label;
     return TvFocus(
@@ -931,9 +976,14 @@ class _ProfileShortcut extends ConsumerWidget {
             constraints: const BoxConstraints(maxWidth: 180),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E222D),
+              color: isDark
+                  ? const Color(0xFF1E222D)
+                  : theme.colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white12),
+              border: Border.all(
+                color:
+                    isDark ? Colors.white12 : theme.colorScheme.outlineVariant,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -941,9 +991,11 @@ class _ProfileShortcut extends ConsumerWidget {
                 if (profile != null)
                   ProfileAvatar(profile: profile, size: 30)
                 else
-                  const Icon(
+                  Icon(
                     Icons.person_outline,
-                    color: Color(0xFF00CFE8),
+                    color: isDark
+                        ? const Color(0xFF00CFE8)
+                        : _lightAccent(const Color(0xFF00CFE8)),
                     size: 30,
                   ),
                 const SizedBox(width: 8),
@@ -952,8 +1004,9 @@ class _ProfileShortcut extends ConsumerWidget {
                     displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color:
+                          isDark ? Colors.white : theme.colorScheme.onSurface,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -975,31 +1028,36 @@ class _SettingsShortcut extends StatelessWidget {
   final FocusNode focusNode;
 
   @override
-  Widget build(BuildContext context) => TvFocus(
-        focusNode: focusNode,
-        onActivate: onPressed,
-        child: GestureDetector(
-          onTap: onPressed,
-          child: Tooltip(
-            message: AppLocalizations.of(context).settings,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00CFE8).withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
-                ),
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF00CFE8)
+        : _lightAccent(const Color(0xFF00CFE8));
+    return TvFocus(
+      focusNode: focusNode,
+      onActivate: onPressed,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Tooltip(
+          message: AppLocalizations.of(context).settings,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.4),
               ),
-              child: const Icon(
-                Icons.settings_outlined,
-                size: 20,
-                color: Color(0xFF00CFE8),
-              ),
+            ),
+            child: Icon(
+              Icons.settings_outlined,
+              size: 20,
+              color: accent,
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// Catégories rafraîchissables depuis l'accueil.
@@ -1120,6 +1178,9 @@ class _UpdateButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).brightness == Brightness.dark
+        ? _tint
+        : _lightAccent(_tint);
     return TvFocus(
       focusNode: focusNode,
       onActivate: onPressed,
@@ -1130,11 +1191,11 @@ class _UpdateButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _tint.withValues(alpha: 0.14),
+              color: accent.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _tint.withValues(alpha: 0.4)),
+              border: Border.all(color: accent.withValues(alpha: 0.4)),
             ),
-            child: const Icon(_glyph, size: 18, color: _tint),
+            child: Icon(_glyph, size: 18, color: accent),
           ),
         ),
       ),
@@ -1178,7 +1239,12 @@ class _LastRefreshLabelState extends ConsumerState<_LastRefreshLabel> {
       text,
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(color: Colors.white70, fontSize: 11),
+      style: TextStyle(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.white70
+            : Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: 11,
+      ),
     );
   }
 }

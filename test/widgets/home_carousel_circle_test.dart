@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/theme/app_theme.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
 import 'package:orbit_3d_flutter/features/home_shell.dart';
@@ -13,6 +14,55 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 void main() {
+  testWidgets('home follows light and dark themes without losing contrast',
+      (tester) async {
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
+    ]);
+    addTearDown(router.dispose);
+
+    Widget home(ThemeMode mode) => ProviderScope(
+          overrides: [
+            sourceTypeProvider.overrideWith((ref) async => 'xtream'),
+            currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+            activeSubscriptionProvider.overrideWith((ref) => null),
+            favoritesProvider.overrideWithBuild((ref, notifier) => {}),
+            lastRefreshTimestampProvider.overrideWithBuild(
+              (ref, notifier) => DateTime.now(),
+            ),
+          ],
+          child: MaterialApp.router(
+            locale: const Locale('fr'),
+            theme: AppTheme.lightTheme(),
+            darkTheme: AppTheme.darkTheme(),
+            themeMode: mode,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+          ),
+        );
+
+    await tester.pumpWidget(home(ThemeMode.dark));
+    await tester.pumpAndSettle();
+    Scaffold scaffold() => tester.widget<Scaffold>(find
+        .descendant(
+          of: find.byType(HomeScreen),
+          matching: find.byType(Scaffold),
+        )
+        .first);
+    expect(scaffold().backgroundColor, const Color(0xFF0E1117));
+
+    await tester.pumpWidget(home(ThemeMode.light));
+    await tester.pumpAndSettle();
+    expect(scaffold().backgroundColor,
+        AppTheme.lightTheme().scaffoldBackgroundColor);
+    final title = tester.widget<Text>(find.text('Chaînes TV').first);
+    expect(title.style!.color, AppTheme.lightTheme().colorScheme.onSurface);
+    final profile = tester.widget<Text>(find.text('Profil').first);
+    expect(profile.style!.color, AppTheme.lightTheme().colorScheme.onSurface);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final size in [const Size(960, 540), const Size(390, 844)]) {
     for (final tvEnabled in [false, true]) {
       testWidgets('home shortcuts remain reachable: $size TV=$tvEnabled',

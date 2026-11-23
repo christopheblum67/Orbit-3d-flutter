@@ -2683,6 +2683,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get comingSoon => 'قريباً';
 
   @override
+  String get settingsContact => 'اتصل بنا';
+
+  @override
+  String get settingsActivateApp => 'تفعيل التطبيق';
+
+  @override
   String get confirmAndContinue => 'تأكيد والمتابعة';
 
   @override

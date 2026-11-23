@@ -2779,6 +2779,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get comingSoon => 'Bientôt disponible';
 
   @override
+  String get settingsContact => 'Contact';
+
+  @override
+  String get settingsActivateApp => 'Activer l’application';
+
+  @override
   String get confirmAndContinue => 'Valider et continuer';
 
   @override

@@ -657,6 +657,8 @@
     "cloudflareReset":  "Cloudflare-Konfiguration zurücksetzen",
     "cloudflareResetSubtitle":  "Deaktiviert TLS-Impersonation und stellt den Standard-User-Agent des Players wieder her",
     "comingSoon":  "Bald verfügbar",
+    "settingsContact": "Kontakt",
+    "settingsActivateApp": "App aktivieren",
     "confirmAndContinue":  "Bestätigen und fortfahren",
     "coverCacheCleared":  "Cover-Cache geleert.",
     "createKidProfile":  "Kinderprofil erstellen",

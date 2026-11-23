@@ -32,18 +32,26 @@ class CatchUpScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     // Programmes passés + à venir via l'EPG COMPLET de la chaîne
     // (`get_simple_data_table`), source du rattrapage multi-jours.
     final catchUpAsync = ref.watch(channelCatchUpProvider(channel.id));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0C10),
+      backgroundColor:
+          isDark ? const Color(0xFF0B0C10) : theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF12141C),
+        backgroundColor:
+            isDark ? const Color(0xFF12141C) : scheme.surfaceContainer,
         leading: TvFocus(
           onActivate: () => context.pop(),
           child: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            icon: Icon(
+              Icons.arrow_back_rounded,
+              color: isDark ? Colors.white : scheme.onSurface,
+            ),
             onPressed: () => context.pop(),
           ),
         ),
@@ -55,17 +63,20 @@ class CatchUpScreen extends ConsumerWidget {
                 height: 28,
                 width: 28,
                 fit: BoxFit.contain,
-                errorWidget: (_, __, ___) =>
-                    const Icon(Icons.tv, color: Colors.white70, size: 28),
+                errorWidget: (_, __, ___) => Icon(Icons.tv,
+                    color: isDark ? Colors.white70 : scheme.onSurfaceVariant,
+                    size: 28),
               )
             else
-              const Icon(Icons.tv, color: Colors.white70, size: 28),
+              Icon(Icons.tv,
+                  color: isDark ? Colors.white70 : scheme.onSurfaceVariant,
+                  size: 28),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 channel.name,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: isDark ? Colors.white : scheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -81,7 +92,10 @@ class CatchUpScreen extends ConsumerWidget {
             return Center(
               child: Text(
                 l.noProgramInfoAvailable,
-                style: const TextStyle(color: Colors.white38, fontSize: 16),
+                style: TextStyle(
+                  color: isDark ? Colors.white38 : scheme.onSurfaceVariant,
+                  fontSize: 16,
+                ),
               ),
             );
           }
@@ -152,6 +166,8 @@ class _CatchUpContentState extends ConsumerState<_CatchUpContent> {
 
     final programs = widget.byDate[_selectedDateKey!] ?? [];
     final now = DateTime.now();
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
 
     return Column(
       children: [
@@ -167,7 +183,10 @@ class _CatchUpContentState extends ConsumerState<_CatchUpContent> {
               ? Center(
                   child: Text(
                     AppLocalizations.of(context).noProgramInfoAvailable,
-                    style: const TextStyle(color: Colors.white38, fontSize: 16),
+                    style: TextStyle(
+                      color: isDark ? Colors.white38 : scheme.onSurfaceVariant,
+                      fontSize: 16,
+                    ),
                   ),
                 )
               : FocusTraversalGroup(
@@ -185,7 +204,8 @@ class _CatchUpContentState extends ConsumerState<_CatchUpContent> {
                       );
                       return TvFocus(
                         autofocus: index == 0,
-                        onActivate: replayable ? () => _playReplay(program) : null,
+                        onActivate:
+                            replayable ? () => _playReplay(program) : null,
                         child: _ProgramTile(
                           program: program,
                           channel: widget.channel,
@@ -277,6 +297,8 @@ class _DatePickerBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (availableDateKeys.isEmpty) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
 
     return SizedBox(
       height: 56,
@@ -299,7 +321,9 @@ class _DatePickerBar extends StatelessWidget {
                 label: Text(
                   label,
                   style: TextStyle(
-                    color: isSelected ? Colors.black : Colors.white,
+                    color: isSelected
+                        ? Colors.black
+                        : (isDark ? Colors.white : scheme.onSurface),
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
@@ -307,14 +331,18 @@ class _DatePickerBar extends StatelessWidget {
                 selected: isSelected,
                 onSelected: (_) => onDateSelected(key),
                 selectedColor: const Color(0xFF6EE7B7),
-                backgroundColor: const Color(0xFF1A1D26),
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                backgroundColor:
+                    isDark ? const Color(0xFF1A1D26) : scheme.surfaceContainer,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
                 side: BorderSide(
-                  color: isSelected ? Colors.transparent : Colors.white12,
+                  color: isSelected
+                      ? Colors.transparent
+                      : (isDark ? Colors.white12 : scheme.outlineVariant),
                   width: 1,
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             );
@@ -344,10 +372,12 @@ class _ProgramTile extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final timeStr = '${_fmt(program.start)} - ${_fmt(program.end)}';
     final catColor = program.categoryColor;
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF16181E),
+        color: isDark ? const Color(0xFF16181E) : scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: catColor.withValues(alpha: 0.3), width: 1),
       ),
@@ -361,8 +391,8 @@ class _ProgramTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   program.title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : scheme.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -412,11 +442,18 @@ class _ProgramTile extends StatelessWidget {
           // Horaire
           Row(
             children: [
-              const Icon(Icons.access_time, size: 14, color: Colors.white54),
+              Icon(
+                Icons.access_time,
+                size: 14,
+                color: isDark ? Colors.white54 : scheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 6),
               Text(
                 timeStr,
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : scheme.onSurfaceVariant,
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
@@ -425,8 +462,8 @@ class _ProgramTile extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               program.description,
-              style: const TextStyle(
-                color: Colors.white60,
+              style: TextStyle(
+                color: isDark ? Colors.white60 : scheme.onSurfaceVariant,
                 fontSize: 13,
                 height: 1.4,
               ),

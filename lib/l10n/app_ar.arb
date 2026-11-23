@@ -657,6 +657,8 @@
     "cloudflareReset":  "إعادة ضبط إعدادات Cloudflare",
     "cloudflareResetSubtitle":  "تعطيل انتحال TLS واستعادة وكيل المستخدم القياسي للمشغل",
     "comingSoon":  "قريباً",
+    "settingsContact": "اتصل بنا",
+    "settingsActivateApp": "تفعيل التطبيق",
     "confirmAndContinue":  "تأكيد والمتابعة",
     "coverCacheCleared":  "تم تفريغ ذاكرة التخزين المؤقت للأغلفة.",
     "createKidProfile":  "إنشاء ملف شخصي للأطفال",

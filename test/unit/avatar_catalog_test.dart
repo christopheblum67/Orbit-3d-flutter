@@ -26,13 +26,13 @@ void main() {
 
     test('les avatars historiques et les nouveaux avatars sont disponibles',
         () {
-      expect(orbit3DAvatars.length, 322);
+      expect(orbit3DAvatars.length, 344);
       const expected = {
         'characters': 62,
         'superheroes': 62,
-        'animals': 74,
+        'animals': 75,
         'nature': 74,
-        'youth': 50,
+        'youth': 71,
       };
       for (final e in expected.entries) {
         expect(
@@ -44,25 +44,52 @@ void main() {
     });
 
     test('ids et valeurs uniques, noms non vides', () {
-      expect(orbit3DAvatars.map((a) => a.id).toSet().length, 322);
-      expect(orbit3DAvatars.map((a) => a.imageUrl).toSet().length, 322);
+      expect(orbit3DAvatars.map((a) => a.id).toSet().length, 344);
+      expect(orbit3DAvatars.map((a) => a.imageUrl).toSet().length, 344);
       for (final a in orbit3DAvatars) {
         expect(a.name.trim(), isNotEmpty, reason: a.id);
       }
     });
 
     test('seule la nouvelle collection est proposée aux profils', () {
-      expect(selectableOrbit3DAvatars, hasLength(250));
-      for (final category in avatarCategoryIds.skip(1)) {
-        expect(selectableOrbit3DAvatars.where((a) => a.category == category),
-            hasLength(50),
-            reason: category);
+      expect(selectableOrbit3DAvatars, hasLength(251));
+      expect(selectableOrbit3DAvatars.map((a) => a.id).toSet(), hasLength(251));
+      const expected = {
+        'characters': 50,
+        'superheroes': 50,
+        'animals': 51,
+        'nature': 50,
+        'youth': 50,
+      };
+      for (final entry in expected.entries) {
+        expect(selectableOrbit3DAvatars.where((a) => a.category == entry.key),
+            hasLength(entry.value),
+            reason: entry.key);
       }
       expect(
           selectableOrbit3DAvatars.every((a) =>
               a.imageUrl.startsWith('asset:assets/images/avatar_collection/')),
           isTrue);
       expect(orbit3DAvatars.any((a) => a.id == 'an09'), isTrue);
+      for (final id in [
+        'anim_09',
+        'anim_20',
+        'anim_30',
+        'anim_39',
+        'anim_50'
+      ]) {
+        expect(selectableOrbit3DAvatars.any((a) => a.id == id), isTrue);
+      }
+    });
+
+    test('les anciens avatars jeunesse restent reconnus sans être proposés',
+        () {
+      for (final id in ['jeun_10', 'jeun_25', 'jeun_50']) {
+        expect(selectableOrbit3DAvatars.any((a) => a.id == id), isFalse);
+        expect(orbit3DAvatars.any((a) => a.id == id), isTrue);
+      }
+      expect(selectableOrbit3DAvatars.any((a) => a.id == 'jeun_51'), isTrue);
+      expect(selectableOrbit3DAvatars.any((a) => a.id == 'anim_51'), isTrue);
     });
 
     test('chaque avatar pointe vers un fichier local existant', () {
@@ -112,7 +139,7 @@ void main() {
         selectedImageUrl: '',
         onAvatarSelected: (v) => picked = v,
       )));
-      expect(find.byType(Image), findsNWidgets(250));
+      expect(find.byType(Image), findsNWidgets(251));
       await tester.tap(find.text('Nature'));
       await tester.pump();
       expect(find.byType(Image), findsNWidgets(50));

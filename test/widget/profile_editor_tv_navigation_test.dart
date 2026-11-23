@@ -29,6 +29,40 @@ Widget _localizedApp(Widget child, {Locale? locale, TvModeNotifier? tvMode}) {
 }
 
 void main() {
+  testWidgets('gender choices are absent in every supported language',
+      (tester) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      await tester.pumpWidget(
+        _localizedApp(const ProfileEditScreen(), locale: locale),
+      );
+      await tester.pumpAndSettle();
+      final l = AppLocalizations.of(
+        tester.element(find.byType(ProfileEditScreen)),
+      );
+      final scrollable = find
+          .descendant(
+            of: find.byType(ListView).first,
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        find.text(l.genreAdventure),
+        300,
+        scrollable: scrollable,
+      );
+      await tester.pumpAndSettle();
+      for (final label in [
+        l.noneOption,
+        l.actorGenderMale,
+        l.actorGenderFemale,
+        l.onboardingOtherNetwork,
+      ]) {
+        expect(find.text(label), findsNothing, reason: locale.languageCode);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
   testWidgets(
       'profile editor and discard confirmation use the selected language',
       (tester) async {
@@ -129,7 +163,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGender');
+        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGenre');
   });
 
   testWidgets('TV continue validates the name and keeps D-pad editing',
@@ -179,7 +213,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
     expect(
-        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGender');
+        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGenre');
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
@@ -187,7 +221,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     expect(
-        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGender');
+        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGenre');
     expect(name.controller.text, 'Zoë 李');
   });
 
@@ -219,7 +253,7 @@ void main() {
     await tester.tap(find.text('Continuer'));
     await tester.pumpAndSettle();
     expect(
-        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGender');
+        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGenre');
   });
 
   testWidgets('TV can reach continue from the name in RTL', (tester) async {

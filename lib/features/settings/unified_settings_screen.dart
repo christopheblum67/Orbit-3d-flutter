@@ -165,8 +165,8 @@ class _SettingsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      final columns = (constraints.maxWidth / 150).floor().clamp(1, 4);
-      const gap = 12.0;
+      const gap = 6.0;
+      final columns = ((constraints.maxWidth + gap) / 78).floor().clamp(1, 4);
       final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
       final textScale =
           MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
@@ -175,7 +175,7 @@ class _SettingsGrid extends StatelessWidget {
         runSpacing: gap,
         children: [
           for (final child in children)
-            SizedBox(width: width, height: 172 * textScale, child: child),
+            SizedBox(width: width, height: 132 * textScale, child: child),
         ],
       );
     });
@@ -189,11 +189,13 @@ class _NavTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.iconAsset,
     this.autofocus = false,
     this.onUp,
   });
 
   final IconData icon;
+  final String? iconAsset;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -244,37 +246,71 @@ class _NavTile extends StatelessWidget {
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(6),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircleAvatar(
-                          radius: 25,
-                          backgroundColor:
-                              scheme.primary.withValues(alpha: 0.14),
-                          child: Icon(icon, size: 27, color: scheme.primary),
-                        ),
-                        const SizedBox(height: 8),
+                        if (iconAsset != null)
+                          Image.asset(
+                            iconAsset!,
+                            width: 44,
+                            height: 44,
+                            excludeFromSemantics: true,
+                          )
+                        else
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(50),
+                              color: scheme.primary.withValues(alpha: 0.14),
+                              border: Border.all(
+                                color: scheme.primary.withValues(alpha: 0.65),
+                              ),
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Transform.rotate(
+                                  angle: -0.5,
+                                  child: Container(
+                                    width: 42,
+                                    height: 23,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.orange
+                                            .withValues(alpha: 0.8),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Icon(icon, size: 24, color: scheme.primary),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 4),
                         Text(
                           title,
                           textAlign: TextAlign.center,
-                          maxLines: 2,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: focused ? scheme.primary : scheme.onSurface,
                           ),
                         ),
                         if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 2),
                           Text(
                             subtitle,
                             textAlign: TextAlign.center,
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 9,
                               color: scheme.onSurfaceVariant,
                             ),
                           ),
@@ -320,12 +356,14 @@ class _AccountSection extends ConsumerWidget {
               autofocus: true,
               onUp: onFirstUp,
               icon: Icons.manage_accounts_rounded,
+              iconAsset: 'assets/icons/settings-profile.png',
               title: l.accountProfiles,
               subtitle: l.accountProfilesSubtitle,
               onTap: () => context.go('/profiles'),
             ),
             _NavTile(
               icon: Icons.subscriptions_rounded,
+              iconAsset: 'assets/icons/settings-subscription.png',
               title: l.accountSubscriptions,
               subtitle: sub == null
                   ? l.accountNoSubscription
@@ -534,6 +572,7 @@ class _NetworkSecuritySection extends ConsumerWidget {
           _SettingsGrid(children: [
             _NavTile(
               icon: Icons.public,
+              iconAsset: 'assets/icons/settings-network.png',
               title: l.dnsProvider,
               subtitle: l.dnsProviderSubtitle,
               onTap: () => _showSettingsDialog(
@@ -560,6 +599,16 @@ class _NetworkSecuritySection extends ConsumerWidget {
               title: l.legalNotice,
               subtitle: l.legalNoticeSubtitle,
               onTap: () => context.go('/legal?flow=settings'),
+            ),
+            _NavTile(
+              icon: Icons.subtitles_outlined,
+              title: l.tabPlayer,
+              subtitle: '${l.settingsSubtitles} · ${l.sectionZapping}',
+              onTap: () => _showSettingsDialog(
+                context,
+                title: l.tabPlayer,
+                child: const _PlaybackOptions(),
+              ),
             ),
           ]),
         ],
@@ -632,6 +681,7 @@ class _PlayerAudioSection extends ConsumerWidget {
           _SettingsGrid(children: [
             _NavTile(
               icon: Icons.play_circle_outline,
+              iconAsset: 'assets/icons/settings-player.png',
               title: l.enginesTile,
               subtitle: l.enginesSubtitle(
                 s.playerLive.primary.label,
@@ -640,17 +690,8 @@ class _PlayerAudioSection extends ConsumerWidget {
               onTap: () => showPlayerEngineConfigSheet(context),
             ),
             _NavTile(
-              icon: Icons.subtitles_outlined,
-              title: l.tabPlayer,
-              subtitle: '${l.settingsSubtitles} · ${l.sectionZapping}',
-              onTap: () => _showSettingsDialog(
-                context,
-                title: l.tabPlayer,
-                child: const _PlaybackOptions(),
-              ),
-            ),
-            _NavTile(
               icon: Icons.nightlight_outlined,
+              iconAsset: 'assets/icons/settings-night.png',
               title: l.audioAndNightFocus,
               subtitle: l.audioAndNightFocusSubtitle,
               onTap: () => _showSettingsDialog(
@@ -661,6 +702,7 @@ class _PlayerAudioSection extends ConsumerWidget {
             ),
             _NavTile(
               icon: Icons.memory_rounded,
+              iconAsset: 'assets/icons/settings-cache.png',
               title: l.sectionMemory,
               subtitle: l.memoryPanelTitle,
               onTap: () => _showSettingsDialog(
@@ -1014,6 +1056,7 @@ class _AdvancedSection extends ConsumerWidget {
               ),
             _NavTile(
               icon: Icons.cleaning_services_outlined,
+              iconAsset: 'assets/icons/settings-cache.png',
               title: l.clearCaches,
               subtitle: l.clearCachesSubtitle,
               onTap: () => _clearAllCaches(context, ref),
@@ -1023,6 +1066,22 @@ class _AdvancedSection extends ConsumerWidget {
               title: l.resetApp,
               subtitle: l.resetAppSubtitle,
               onTap: () => _factoryReset(context, ref),
+            ),
+            _NavTile(
+              icon: Icons.contact_support_outlined,
+              title: l.settingsContact,
+              subtitle: l.comingSoon,
+              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l.comingSoon)),
+              ),
+            ),
+            _NavTile(
+              icon: Icons.verified_user_outlined,
+              title: l.settingsActivateApp,
+              subtitle: l.comingSoon,
+              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l.comingSoon)),
+              ),
             ),
           ]),
           const SizedBox(height: 24),

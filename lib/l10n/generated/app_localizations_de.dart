@@ -2781,6 +2781,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get comingSoon => 'Bald verfügbar';
 
   @override
+  String get settingsContact => 'Kontakt';
+
+  @override
+  String get settingsActivateApp => 'App aktivieren';
+
+  @override
   String get confirmAndContinue => 'Bestätigen und fortfahren';
 
   @override

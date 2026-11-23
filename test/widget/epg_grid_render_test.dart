@@ -46,8 +46,10 @@ Widget harness(
   Function(EPGProgram, String)? onProgramTap,
   DateTime? gridStartTime,
   Locale locale = const Locale('fr'),
+  ThemeData? theme,
 }) {
   return MaterialApp(
+    theme: theme,
     // Les delegates sont nécessaires : la grille lit ses libellés via
     // `AppLocalizations.of(context)`, qui renvoie null sans eux. Un test sans
     // delegates échouerait alors même que l'écran, lui, fonctionne.
@@ -77,6 +79,32 @@ Widget harness(
 }
 
 void main() {
+  testWidgets('la grille repeint ses fonds lors du changement de thème',
+      (tester) async {
+    dynamic gridPainter() => tester
+        .widgetList<CustomPaint>(find.descendant(
+          of: find.byType(EpgGrid2DView),
+          matching: find.byType(CustomPaint),
+        ))
+        .firstWhere((paint) =>
+            paint.painter?.runtimeType.toString() == '_EpgGridPainter')
+        .painter;
+
+    final dark = ThemeData.dark();
+    final light = ThemeData.light();
+    await tester.pumpWidget(harness(['TF1'], const {}, theme: dark));
+    await tester.pump();
+    final dynamic darkPainter = gridPainter();
+    expect(darkPainter.scheme.brightness, Brightness.dark);
+
+    await tester.pumpWidget(harness(['TF1'], const {}, theme: light));
+    await tester.pumpAndSettle();
+    final dynamic lightPainter = gridPainter();
+    expect(lightPainter.scheme.brightness, Brightness.light);
+    expect(lightPainter.shouldRepaint(darkPainter), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('la grille repeint le libellé vide quand la langue change',
       (tester) async {
     final channels = ['TF1'];
@@ -1163,7 +1191,9 @@ void main() {
       final last = past('dernier', 2);
       await tester.pumpWidget(dpadHarness(
         channels: const ['A'],
-        data: {'A': [first, last]},
+        data: {
+          'A': [first, last]
+        },
       ));
       await tester.pump();
       final state =
@@ -1183,7 +1213,9 @@ void main() {
         (tester) async {
       await tester.pumpWidget(dpadHarness(
         channels: const ['A'],
-        data: {'A': [prog('A', 0)]},
+        data: {
+          'A': [prog('A', 0)]
+        },
       ));
       await tester.pump();
       final state =

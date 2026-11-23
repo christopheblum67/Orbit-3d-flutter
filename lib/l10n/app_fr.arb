@@ -1423,6 +1423,8 @@
     "cloudflareReset":  "Réinitialiser config Cloudflare",
     "cloudflareResetSubtitle":  "Désactive l\u0027impersonation TLS et rétablit l\u0027User-Agent standard du lecteur",
     "comingSoon":  "Bientôt disponible",
+    "settingsContact": "Contact",
+    "settingsActivateApp": "Activer l’application",
     "confirmAndContinue":  "Valider et continuer",
     "coverCacheCleared":  "Cache des pochettes purgé.",
     "createKidProfile":  "Créer un profil Enfant",

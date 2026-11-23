@@ -504,9 +504,10 @@ const List<AvatarItem> _legacyAvatars = [
 List<AvatarItem> _collectionItems(
   String prefix,
   String category,
+  Iterable<int> indices,
 ) =>
     [
-      for (var index = 1; index <= 50; index++)
+      for (final index in indices)
         AvatarItem(
           id: '${prefix}_${index.toString().padLeft(2, '0')}',
           name: 'Avatar ${index.toString().padLeft(2, '0')}',
@@ -516,17 +517,81 @@ List<AvatarItem> _collectionItems(
         ),
     ];
 
-/// Seule la nouvelle collection est proposée dans le sélecteur.
+Iterable<int> _indicesThrough(int count) =>
+    Iterable.generate(count, (index) => index + 1);
+
+const List<int> _selectableYouthIndices = [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  51,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  52,
+  17,
+  18,
+  53,
+  21,
+  22,
+  23,
+  24,
+  54,
+  26,
+  27,
+  55,
+  56,
+  30,
+  31,
+  32,
+  33,
+  34,
+  57,
+  58,
+  59,
+  60,
+  61,
+  62,
+  41,
+  63,
+  64,
+  65,
+  66,
+  67,
+  68,
+  69,
+  70,
+  71,
+];
+
+final List<AvatarItem> _collectionAvatars = List.unmodifiable([
+  ..._collectionItems('char', 'characters', _indicesThrough(50)),
+  ..._collectionItems('scifi', 'superheroes', _indicesThrough(50)),
+  ..._collectionItems('anim', 'animals', _indicesThrough(51)),
+  ..._collectionItems('nat', 'nature', _indicesThrough(50)),
+  ..._collectionItems('jeun', 'youth', _indicesThrough(71)),
+]);
+
+/// Les anciens avatars jeunesse restent disponibles aux profils existants.
 final List<AvatarItem> selectableOrbit3DAvatars = List.unmodifiable([
-  ..._collectionItems('char', 'characters'),
-  ..._collectionItems('scifi', 'superheroes'),
-  ..._collectionItems('anim', 'animals'),
-  ..._collectionItems('nat', 'nature'),
-  ..._collectionItems('jeun', 'youth'),
+  ..._collectionItems('char', 'characters', _indicesThrough(50)),
+  ..._collectionItems('scifi', 'superheroes', _indicesThrough(50)),
+  ..._collectionItems('anim', 'animals', _indicesThrough(51)),
+  ..._collectionItems('nat', 'nature', _indicesThrough(50)),
+  ..._collectionItems('jeun', 'youth', _selectableYouthIndices),
 ]);
 
 /// Conserve les anciens chemins pour reconnaître les profils enregistrés.
 final List<AvatarItem> orbit3DAvatars = List.unmodifiable([
   ..._legacyAvatars,
-  ...selectableOrbit3DAvatars,
+  ..._collectionAvatars,
 ]);

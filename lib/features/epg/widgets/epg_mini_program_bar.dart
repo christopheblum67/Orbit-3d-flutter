@@ -25,6 +25,8 @@ class EpgMiniProgramBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     return ValueListenableBuilder<DateTime>(
       valueListenable: controller.now,
       builder: (context, now, _) {
@@ -39,17 +41,20 @@ class EpgMiniProgramBar extends StatelessWidget {
             return Container(
               height: height,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFF13151B),
+              decoration: BoxDecoration(
+                color:
+                    isDark ? const Color(0xFF13151B) : scheme.surfaceContainer,
                 border: Border(
-                  bottom: BorderSide(color: Colors.white10),
+                  bottom: BorderSide(
+                    color: isDark ? Colors.white10 : scheme.outlineVariant,
+                  ),
                 ),
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.chrome_reader_mode,
-                    color: Colors.white38,
+                    color: isDark ? Colors.white38 : scheme.onSurfaceVariant,
                     size: 16,
                   ),
                   const SizedBox(width: 8),
@@ -57,8 +62,10 @@ class EpgMiniProgramBar extends StatelessWidget {
                     child: channelName == null
                         ? Text(
                             l.epgSelectChannelHint,
-                            style: const TextStyle(
-                              color: Colors.white38,
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white38
+                                  : scheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           )
@@ -85,8 +92,10 @@ class EpgMiniProgramBar extends StatelessWidget {
                                           : l.epgNoCurrentProgram,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? Colors.white
+                                            : scheme.onSurface,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -97,8 +106,10 @@ class EpgMiniProgramBar extends StatelessWidget {
                                       '· ${next.title}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white38,
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? Colors.white38
+                                            : scheme.onSurfaceVariant,
                                         fontSize: 11,
                                       ),
                                     ),
@@ -110,7 +121,9 @@ class EpgMiniProgramBar extends StatelessWidget {
                                     ? null
                                     : _progress(current, now),
                                 minHeight: 3,
-                                backgroundColor: Colors.white12,
+                                backgroundColor: isDark
+                                    ? Colors.white12
+                                    : scheme.outlineVariant,
                                 valueColor: const AlwaysStoppedAnimation(
                                   Color(0xFF8B5CF6),
                                 ),

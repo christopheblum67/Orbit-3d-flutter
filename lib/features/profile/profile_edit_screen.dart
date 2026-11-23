@@ -43,7 +43,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _scrollController = ScrollController();
   late final FocusNode _nameFocus;
   final _continueFocus = FocusNode(debugLabel: 'profile.continue');
-  final _firstGenderFocus = FocusNode(debugLabel: 'profile.firstGender');
+  final _firstGenreFocus = FocusNode(debugLabel: 'profile.firstGenre');
   final _saveFocus = FocusNode(debugLabel: 'profile.save');
   final _identityCardKey = GlobalKey();
   ProfileType _type = ProfileType.adult;
@@ -51,7 +51,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   String? _remoteAvatarUrl;
   String? _pinHash;
   DateTime? _dateOfBirth;
-  String _gender = 'Non spécifié';
   final List<String> _favoriteGenres = [];
   bool _saving = false;
   bool _hashingPin = false;
@@ -66,7 +65,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   String? _baseRemoteAvatarUrl;
   String? _basePinHash;
   DateTime? _baseDateOfBirth;
-  String _baseGender = 'Non spécifié';
   final List<String> _baseFavoriteGenres = [];
 
   /// `true` si le formulaire contient des modifications non sauvegardées
@@ -79,7 +77,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         _remoteAvatarUrl != _baseRemoteAvatarUrl ||
         _pinHash != _basePinHash ||
         _dateOfBirth != _baseDateOfBirth ||
-        _gender != _baseGender ||
         !_listEquals(_favoriteGenres, _baseFavoriteGenres);
   }
 
@@ -337,7 +334,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
-      if (mounted) _firstGenderFocus.requestFocus();
+      if (mounted) _firstGenreFocus.requestFocus();
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }
@@ -348,7 +345,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _scrollController.dispose();
     _nameFocus.dispose();
     _continueFocus.dispose();
-    _firstGenderFocus.dispose();
+    _firstGenreFocus.dispose();
     _saveFocus.dispose();
     super.dispose();
   }
@@ -359,7 +356,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _nameController.text = profile.firstName;
     _type = profile.profileType;
     _dateOfBirth = profile.dateOfBirth;
-    _gender = profile.gender;
     _favoriteGenres
       ..clear()
       ..addAll(profile.favoriteGenres);
@@ -385,7 +381,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _baseRemoteAvatarUrl = _remoteAvatarUrl;
     _basePinHash = _pinHash;
     _baseDateOfBirth = _dateOfBirth;
-    _baseGender = _gender;
     _baseFavoriteGenres
       ..clear()
       ..addAll(_favoriteGenres);
@@ -486,7 +481,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             profileType: _type,
             avatarUrl: avatarUrl,
             dateOfBirth: _dateOfBirth ?? _defaultDateOfBirth(),
-            gender: _gender,
             favoriteGenres: List.of(_favoriteGenres),
             pinHash: _pinHash,
             clearPin: _pinHash == null,
@@ -527,7 +521,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           id: const Uuid().v4(),
           firstName: name,
           dateOfBirth: _dateOfBirth ?? _defaultDateOfBirth(),
-          gender: _gender,
+          gender: 'Non spécifié',
           favoriteGenres: List.of(_favoriteGenres),
           avatarUrl: avatarUrl,
           profileType: _type,
@@ -828,33 +822,12 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final genders = [
-      ('Non spécifié', l.noneOption),
-      ('Homme', l.actorGenderMale),
-      ('Femme', l.actorGenderFemale),
-      ('Autre', l.onboardingOtherNetwork),
-    ];
     return AppCard(
       key: key,
       color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final (index, (value, label)) in genders.indexed)
-                _ProfileChoiceChip(
-                  label: label,
-                  focusNode: index == 0 ? _firstGenderFocus : null,
-                  onUp: index == 0 ? _focusContinue : null,
-                  selected: _gender == value,
-                  onTap: () => setState(() => _gender = value),
-                ),
-            ],
-          ),
-          const SizedBox(height: 18),
           Text(
             l.profileFavoriteMovieGenres,
             style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -870,9 +843,11 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final genre in _genreOptions)
+              for (final (index, genre) in _genreOptions.indexed)
                 _ProfileChoiceChip(
                   label: _genreLabel(l, genre),
+                  focusNode: index == 0 ? _firstGenreFocus : null,
+                  onUp: index == 0 ? _focusContinue : null,
                   selected: _favoriteGenres.contains(genre),
                   onTap: () => setState(() {
                     if (_favoriteGenres.contains(genre)) {
@@ -965,7 +940,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 }
 
-/// Puces focales du pad (genre / genre de film), sélectionnables
+/// Puces focales du pad, sélectionnables
 /// et navigables au d-pad avec retour haptique.
 class _ProfileChoiceChip extends StatefulWidget {
   const _ProfileChoiceChip({

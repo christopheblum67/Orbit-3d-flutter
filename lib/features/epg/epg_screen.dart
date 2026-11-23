@@ -51,9 +51,11 @@ class _EpgLoadingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      color: const Color(0xFF1F2430),
+      color: isDark ? const Color(0xFF1F2430) : scheme.surfaceContainerHigh,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
@@ -66,7 +68,10 @@ class _EpgLoadingBanner extends StatelessWidget {
           Expanded(
             child: Text(
               AppLocalizations.of(context).epgLoadingBanner,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(
+                color: isDark ? Colors.white70 : scheme.onSurfaceVariant,
+                fontSize: 13,
+              ),
             ),
           ),
         ],
@@ -122,7 +127,8 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
       }
 
       final channelsResult = await safeAsync(() async {
-        if (ref.read(activeSubscriptionProvider)?.type == SubscriptionType.m3u) {
+        if (ref.read(activeSubscriptionProvider)?.type ==
+            SubscriptionType.m3u) {
           ref.invalidate(m3uPlaylistProvider);
           ref.invalidate(liveCategoriesFromM3UProvider);
         }
@@ -278,7 +284,11 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                             : effective == 'recent'
                                 ? l.liveNoRecentChannel
                                 : l.epgNoChannelsInCategory,
-                        style: const TextStyle(color: Colors.white54),
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white54
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : _EpgGrid2DWrapper(
@@ -318,6 +328,8 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
     List<Channel> channels,
   ) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     final replayable = isReplayableProgram(
       program,
       now: DateTime.now(),
@@ -325,7 +337,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
     );
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF16181E),
+      backgroundColor: isDark ? const Color(0xFF16181E) : scheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -337,8 +349,8 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
           children: [
             Text(
               program.title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: isDark ? Colors.white : scheme.onSurface,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -346,22 +358,29 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
             const SizedBox(height: 12),
             Text(
               '${_formatTime(program.start)} - ${_formatTime(program.end)}',
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              style: TextStyle(
+                color: isDark ? Colors.white70 : scheme.onSurfaceVariant,
+                fontSize: 14,
+              ),
             ),
             if (channel.supportsReplay) ...[
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.history,
-                    color: Color(0xFF6EE7B7),
+                    color: isDark
+                        ? const Color(0xFF6EE7B7)
+                        : const Color(0xFF006C4C),
                     size: 14,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     l.epgReplayAvailableOnChannel,
-                    style: const TextStyle(
-                      color: Color(0xFF6EE7B7),
+                    style: TextStyle(
+                      color: isDark
+                          ? const Color(0xFF6EE7B7)
+                          : const Color(0xFF006C4C),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -373,7 +392,10 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
               const SizedBox(height: 16),
               Text(
                 program.description,
-                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : scheme.onSurfaceVariant,
+                  fontSize: 14,
+                ),
               ),
             ],
             const SizedBox(height: 24),
@@ -437,7 +459,8 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                   ],
                 ],
               ),
-            ),            if (channel.supportsReplay) ...[
+            ),
+            if (channel.supportsReplay) ...[
               const SizedBox(height: 8),
               TextButton.icon(
                 onPressed: () {
@@ -538,20 +561,24 @@ class _CategoryFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     return Container(
       height: 56,
-      color: const Color(0xFF0D0E12),
+      color: isDark ? const Color(0xFF0D0E12) : scheme.surface,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
           _chip(
+            scheme: scheme,
             label: 'Favoris',
             count: favCount,
             selected: selected == 'fav',
             onTap: () => onSelected('fav'),
           ),
           _chip(
+            scheme: scheme,
             label: l.recentlyWatched,
             count: recentCount,
             selected: selected == 'recent',
@@ -559,6 +586,7 @@ class _CategoryFilterBar extends StatelessWidget {
           ),
           for (final category in categories)
             _chip(
+              scheme: scheme,
               label: category.name,
               count: category.count,
               selected: selected == category.id,
@@ -570,28 +598,37 @@ class _CategoryFilterBar extends StatelessWidget {
   }
 
   Widget _chip({
+    required ColorScheme scheme,
     required String label,
     required bool selected,
     required VoidCallback onTap,
     int count = 0,
   }) {
+    final isDark = scheme.brightness == Brightness.dark;
     final labelled = count > 0 ? '$label ($count)' : label;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: TvFocus(
         onActivate: onTap,
         child: FilterChip(
-        label: Text(labelled),
-        selected: selected,
-        onSelected: (_) => onTap(),
-        backgroundColor: const Color(0xFF16181E),
-        selectedColor: const Color(0xFF2D224D),
-        checkmarkColor: const Color(0xFF8B5CF6),
-        labelStyle: TextStyle(
-          color: selected ? const Color(0xFF8B5CF6) : Colors.white70,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
+          label: Text(labelled),
+          selected: selected,
+          onSelected: (_) => onTap(),
+          backgroundColor:
+              isDark ? const Color(0xFF16181E) : scheme.surfaceContainer,
+          selectedColor:
+              isDark ? const Color(0xFF2D224D) : scheme.primaryContainer,
+          checkmarkColor:
+              isDark ? const Color(0xFF8B5CF6) : scheme.onPrimaryContainer,
+          labelStyle: TextStyle(
+            color: isDark
+                ? (selected ? const Color(0xFF8B5CF6) : Colors.white70)
+                : (selected
+                    ? scheme.onPrimaryContainer
+                    : scheme.onSurfaceVariant),
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
         ),
       ),
     );
@@ -877,6 +914,8 @@ class _EpgFreshnessBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     final at = loadedAt;
     final String label;
     final Color color;
@@ -885,18 +924,18 @@ class _EpgFreshnessBar extends StatelessWidget {
       color = const Color(0xFF8B5CF6);
     } else if (at == null) {
       label = l.epgNoDataTitle;
-      color = Colors.white38;
+      color = isDark ? Colors.white38 : scheme.onSurfaceVariant;
     } else {
       final time = MaterialLocalizations.of(context)
           .formatTimeOfDay(TimeOfDay.fromDateTime(at));
       label = '${l.homeRefreshDone} $time';
-      color = Colors.white54;
+      color = isDark ? Colors.white54 : scheme.onSurfaceVariant;
     }
 
     return Container(
       height: 32,
       padding: const EdgeInsets.only(left: 12, right: 4),
-      color: const Color(0xFF13151B),
+      color: isDark ? const Color(0xFF13151B) : scheme.surfaceContainer,
       child: Row(
         children: [
           if (refreshing)
@@ -920,7 +959,7 @@ class _EpgFreshnessBar extends StatelessWidget {
             onActivate: refreshing ? null : () => onRefresh(),
             child: IconButton(
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              color: Colors.white70,
+              color: isDark ? Colors.white70 : scheme.onSurfaceVariant,
               tooltip: l.refreshAction,
               onPressed: refreshing ? null : () => onRefresh(),
             ),
@@ -950,6 +989,8 @@ class _EpgHeadbarSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     return ValueListenableBuilder<String?>(
       valueListenable: controller.targetedChannel,
       builder: (context, channelName, _) {
@@ -958,19 +999,22 @@ class _EpgHeadbarSection extends ConsumerWidget {
           return Container(
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            color: const Color(0xFF13151B),
+            color: isDark ? const Color(0xFF13151B) : scheme.surfaceContainer,
             alignment: Alignment.centerLeft,
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.live_tv,
-                  color: Colors.white38,
+                  color: isDark ? Colors.white38 : scheme.onSurfaceVariant,
                   size: 16,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   l.epgSelectChannelHint,
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  style: TextStyle(
+                    color: isDark ? Colors.white38 : scheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -1080,7 +1124,9 @@ class _EpgHeadbarSection extends ConsumerWidget {
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF16181E),
+      backgroundColor: scheme.brightness == Brightness.dark
+          ? const Color(0xFF16181E)
+          : scheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

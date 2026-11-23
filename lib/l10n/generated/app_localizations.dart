@@ -4804,6 +4804,18 @@ abstract class AppLocalizations {
   /// **'Bientôt disponible'**
   String get comingSoon;
 
+  /// No description provided for @settingsContact.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contact'**
+  String get settingsContact;
+
+  /// No description provided for @settingsActivateApp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activer l’application'**
+  String get settingsActivateApp;
+
   /// No description provided for @confirmAndContinue.
   ///
   /// In fr, this message translates to:

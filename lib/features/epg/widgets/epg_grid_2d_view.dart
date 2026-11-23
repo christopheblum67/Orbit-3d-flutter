@@ -974,6 +974,9 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   Widget build(BuildContext context) {
     _rebuildRenderCache();
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
+    final gridBackground = isDark ? const Color(0xFF0D0E12) : scheme.surface;
 
     // Largeur de la journée = 24 h × échelle. Elle doit valoir EXACTEMENT ce que
     // valent les positions des programmes (`minutes × pixelsPerMinute`), sinon
@@ -1000,7 +1003,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     const channelWidth = kChannelWidth;
 
     return Container(
-      color: const Color(0xFF0D0E12),
+      color: gridBackground,
       child: Column(
         children: [
           // Frise temporelle + barre de navigation
@@ -1017,7 +1020,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
           // après, aligné sur la grille.
           Container(
             height: 44,
-            color: const Color(0xFF0D0E12),
+            color: gridBackground,
             child: Row(
               children: [
                 SizedBox(
@@ -1027,6 +1030,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                     children: [
                       _AxisButton(
                         icon: Icons.zoom_out,
+                        color:
+                            isDark ? Colors.white70 : scheme.onSurfaceVariant,
                         tooltip: '${l.epgZoomOut} '
                             '(${_zoomFactor.toStringAsFixed(1)}×)',
                         onPressed: _zoomOut,
@@ -1040,6 +1045,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                       ),
                       _AxisButton(
                         icon: Icons.zoom_in,
+                        color:
+                            isDark ? Colors.white70 : scheme.onSurfaceVariant,
                         tooltip: '${l.epgZoomIn} '
                             '(${_zoomFactor.toStringAsFixed(1)}×)',
                         onPressed: _zoomIn,
@@ -1108,11 +1115,17 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                           final isEmpty = !hasPrograms && !isLoading;
                           return Container(
                             height: rowHeight,
-                            color: isLoading
-                                ? const Color(0xFF1A1D26)
-                                : isEmpty
-                                    ? const Color(0xFF1A1518)
-                                    : const Color(0xFF12141C),
+                            color: isDark
+                                ? (isLoading
+                                    ? const Color(0xFF1A1D26)
+                                    : isEmpty
+                                        ? const Color(0xFF1A1518)
+                                        : const Color(0xFF12141C))
+                                : (isLoading
+                                    ? scheme.surfaceContainerHigh
+                                    : isEmpty
+                                        ? scheme.surfaceContainerLow
+                                        : scheme.surfaceContainer),
                             margin: const EdgeInsets.only(bottom: kRowGap),
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             alignment: Alignment.centerLeft,
@@ -1143,11 +1156,15 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                     child: Text(
                                       ch,
                                       style: TextStyle(
-                                        color: isLoading
-                                            ? Colors.white70
-                                            : isEmpty
-                                                ? Colors.white30
-                                                : Colors.white,
+                                        color: isDark
+                                            ? (isLoading
+                                                ? Colors.white70
+                                                : isEmpty
+                                                    ? Colors.white30
+                                                    : Colors.white)
+                                            : (isEmpty
+                                                ? scheme.onSurfaceVariant
+                                                : scheme.onSurface),
                                         fontWeight: FontWeight.w600,
                                         fontSize: widget.isTv ? 14.0 : 11.0,
                                       ),
@@ -1156,10 +1173,12 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                     ),
                                   ),
                                   if (!hasPrograms && !isLoading)
-                                    const Icon(
+                                    Icon(
                                       Icons.info_outline,
                                       size: 12,
-                                      color: Colors.white30,
+                                      color: isDark
+                                          ? Colors.white30
+                                          : scheme.onSurfaceVariant,
                                     ),
                                 ],
                               ),
@@ -1199,7 +1218,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                             onFocusChange: (focused) {
                               if (focused) {
                                 _ensureFocusCell();
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                WidgetsBinding.instance
+                                    .addPostFrameCallback((_) {
                                   if (mounted && _gridFocusNode.hasFocus) {
                                     _revealFocused();
                                   }
@@ -1294,6 +1314,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                           channelIndex: index,
                                           emptyLabel: l.epgNoDataTitle,
                                           liveLabel: l.epgLiveNow,
+                                          scheme: scheme,
                                           focusCell: _focusCell,
                                           textDirection:
                                               Directionality.of(context),
@@ -1677,6 +1698,7 @@ class _NowLinePainter extends CustomPainter {
 /// Repeint uniquement sur les notifiers reçus (hover, "now", scroll), pas à
 /// chaque build du widget.
 class _EpgGridPainter extends CustomPainter {
+  final ColorScheme scheme;
   final List<String> channels;
   final DateTime gridStartTime;
   final double pixelsPerMinute;
@@ -1722,6 +1744,7 @@ class _EpgGridPainter extends CustomPainter {
   final Map<String, List<_RenderProgram>> Function() renderCacheOf;
 
   _EpgGridPainter({
+    required this.scheme,
     required this.channels,
     required this.renderCacheOf,
     required this.gridStartTime,
@@ -1792,16 +1815,17 @@ class _EpgGridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final isDark = scheme.brightness == Brightness.dark;
     canvas.drawRect(
       Offset.zero & size,
-      Paint()..color = const Color(0xFF0D0E12),
+      Paint()..color = isDark ? const Color(0xFF0D0E12) : scheme.surface,
     );
 
     // Lignes de séparation horizontales (entre chaînes)
     // Séparateur entre deux lignes : sur un canvas par ligne, c'est le bord
     // haut qui sépare celle-ci de la précédente.
     final linePaint = Paint()
-      ..color = Colors.white12
+      ..color = isDark ? Colors.white12 : scheme.outlineVariant
       ..strokeWidth = 1;
     canvas.drawLine(const Offset(0, 0), Offset(size.width, 0), linePaint);
 
@@ -1842,16 +1866,23 @@ class _EpgGridPainter extends CustomPainter {
         final bgPaint = Paint()
           ..color = isDummy
               ? const Color(0x00000000)
-              : rp.isLive
-                  ? const Color(0xFF2D224D)
-                  : (isHovered || isFocused
-                      ? const Color(0xFF2A2F3A)
-                      : const Color(0xFF1C1F26));
+              : isDark
+                  ? (rp.isLive
+                      ? const Color(0xFF2D224D)
+                      : (isHovered || isFocused
+                          ? const Color(0xFF2A2F3A)
+                          : const Color(0xFF1C1F26)))
+                  : (rp.isLive
+                      ? scheme.primaryContainer
+                      : (isHovered || isFocused
+                          ? scheme.surfaceContainerHighest
+                          : scheme.surfaceContainer));
         if (isDummy) {
           canvas.drawRRect(
             rect,
             Paint()
-              ..color = Colors.white.withValues(alpha: 0.02)
+              ..color = (isDark ? Colors.white : scheme.onSurface)
+                  .withValues(alpha: 0.02)
               ..style = PaintingStyle.fill,
           );
         } else {
@@ -1865,14 +1896,15 @@ class _EpgGridPainter extends CustomPainter {
           // survol. C'est le seul repère de « où je suis » à la télécommande.
           ..strokeWidth = isFocused ? 2.5 : 1.0
           ..color = isDummy
-              ? Colors.white10.withValues(alpha: 0.4)
+              ? (isDark ? Colors.white10 : scheme.outlineVariant)
+                  .withValues(alpha: 0.4)
               : isFocused
                   ? Colors.amber
                   : rp.isLive
                       ? const Color(0xFF8B5CF6)
                       : (isHovered
                           ? const Color(0xFF8B5CF6).withValues(alpha: 0.5)
-                          : Colors.white10);
+                          : (isDark ? Colors.white10 : scheme.outlineVariant));
         if (isDummy) {
           // Bordure en pointillés : le motif dit « il n'y a rien ici » sans
           // competing avec les programmes voisins.
@@ -1935,7 +1967,9 @@ class _EpgGridPainter extends CustomPainter {
             text: TextSpan(
               text: rp.program.title,
               style: TextStyle(
-                color: isDummy ? Colors.white24 : Colors.white70,
+                color: isDark
+                    ? (isDummy ? Colors.white24 : Colors.white70)
+                    : (isDummy ? scheme.onSurfaceVariant : scheme.onSurface),
                 fontWeight: isDummy ? FontWeight.w400 : FontWeight.bold,
                 fontSize: 10,
               ),
@@ -1954,10 +1988,11 @@ class _EpgGridPainter extends CustomPainter {
         // Badge "replay" pour les programmes terminés des chaînes DVR
         if (rp.replayable && rp.width > 34) {
           final replayPainter = TextPainter(
-            text: const TextSpan(
+            text: TextSpan(
               text: '↺ REPLAY',
               style: TextStyle(
-                color: Color(0xFF6EE7B7),
+                color:
+                    isDark ? const Color(0xFF6EE7B7) : const Color(0xFF006C4C),
                 fontSize: 8,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.4,
@@ -2051,6 +2086,7 @@ class _EpgGridPainter extends CustomPainter {
     // disait « rien à repeindre » alors que son contenu venait de changer.
     if (old.dataRevision != dataRevision) return true;
     return old.gridStartTime != gridStartTime ||
+        old.scheme != scheme ||
         old.pixelsPerMinute != pixelsPerMinute ||
         old.viewportWidth != viewportWidth ||
         old.emptyLabel != emptyLabel ||

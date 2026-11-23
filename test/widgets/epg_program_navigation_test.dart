@@ -63,6 +63,29 @@ void main() {
     createdAt: now,
   );
 
+  testWidgets('catch-up follows the light theme with readable program text',
+      (tester) async {
+    final theme = ThemeData.light();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        channelCatchUpProvider.overrideWith((ref, id) async => [program]),
+        activeSubscriptionProvider.overrideWith((ref) => sub),
+      ],
+      child: MaterialApp(
+        theme: theme,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: CatchUpScreen(channel: channel),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+        theme.scaffoldBackgroundColor);
+    expect(tester.widget<Text>(find.text(program.title)).style!.color,
+        theme.colorScheme.onSurface);
+    expect(tester.takeException(), isNull);
+  });
+
   Future<void> open(WidgetTester tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1;

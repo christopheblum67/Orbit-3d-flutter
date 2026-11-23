@@ -107,16 +107,19 @@ void main() {
       tester.testTextInput.hide();
       await tester.pumpAndSettle();
 
-      if (!preserving) {
-        await tapVisible(find.text('Femme'));
-      }
+      await tester.scrollUntilVisible(find.text('Aventure'), 250,
+          scrollable: scrollable);
+      expect(find.text('Homme'), findsNothing);
+      expect(find.text('Femme'), findsNothing);
+      expect(find.text('Autre'), findsNothing);
+      expect(find.text('Aucun'), findsNothing);
       await tapVisible(find.text('Aventure'));
       await tapVisible(find.text(editing ? 'Enregistrer' : 'Créer le profil'));
 
       final saved = storage.saved;
       expect(saved, isNotNull);
       expect(saved!.firstName, 'Zoë 李 42');
-      expect(saved.gender, preserving ? 'Non spécifié' : 'Femme');
+      expect(saved.gender, editing ? existing.gender : 'Non spécifié');
       expect(
         saved.profileType,
         editing ? ProfileType.child : ProfileType.adult,

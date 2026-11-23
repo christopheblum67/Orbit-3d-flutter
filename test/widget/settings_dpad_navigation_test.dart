@@ -14,6 +14,123 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('future advanced actions explain they are not yet available',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(960, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final container = ProviderContainer(overrides: [
+      deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+      activeSubscriptionProvider.overrideWith((ref) => null),
+      currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(advancedSettingsProvider.notifier).load();
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const UnifiedSettingsScreen()),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Advanced'));
+    await tester.pumpAndSettle();
+    for (final title in ['Contact', 'Activate app']) {
+      await tester.ensureVisible(find.text(title));
+      await tester.tap(find.text(title));
+      await tester.pumpAndSettle();
+      expect(
+          find.descendant(
+            of: find.byType(SnackBar),
+            matching: find.text('Coming soon'),
+          ),
+          findsOneWidget);
+      ScaffoldMessenger.of(tester.element(find.byType(UnifiedSettingsScreen)))
+          .hideCurrentSnackBar();
+      await tester.pumpAndSettle();
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  test('future action labels are available in all supported languages', () {
+    for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
+      final l = lookupAppLocalizations(Locale(language));
+      expect(l.settingsContact, isNotEmpty);
+      expect(l.settingsActivateApp, isNotEmpty);
+      expect(l.comingSoon, isNotEmpty);
+    }
+  });
+
+  for (final size in [
+    const Size(360, 720),
+    const Size(640, 360),
+    const Size(960, 540),
+  ]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('four account cards fit on one row at $size, scale $scale',
+          (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final container = ProviderContainer(overrides: [
+          deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+          activeSubscriptionProvider.overrideWith((ref) => null),
+          currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+        ]);
+        addTearDown(container.dispose);
+        await container.read(advancedSettingsProvider.notifier).load();
+        final router = GoRouter(routes: [
+          GoRoute(path: '/', builder: (_, __) => const UnifiedSettingsScreen()),
+        ]);
+        addTearDown(router.dispose);
+        await tester.pumpWidget(UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+          ),
+        ));
+        await tester.pumpAndSettle();
+        final l = lookupAppLocalizations(const Locale('en'));
+        final titles = [
+          l.accountProfiles,
+          l.accountSubscriptions,
+          l.accountPreferences,
+          l.accountDeviceProfile,
+        ];
+        final rects = [
+          for (final title in titles)
+            tester.getRect(find
+                .ancestor(
+                  of: find.text(title),
+                  matching: find.byType(TvFocus),
+                )
+                .first),
+        ];
+        for (final rect in rects) {
+          expect(rect.top, closeTo(rects.first.top, 0.1));
+          expect(rect.width, greaterThan(60));
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
     testWidgets('network card is localized and editable in $language',
         (tester) async {
@@ -167,7 +284,7 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Player & Audio'));
+    await tester.tap(find.text('Network & Security'));
     await tester.pumpAndSettle();
 
     FocusNode tileFocus(Finder content) {
@@ -181,7 +298,9 @@ void main() {
           .first));
     }
 
-    tileFocus(find.text('Playback engines')).requestFocus();
+    tileFocus(find.text('DNS provider (DoH)')).requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();

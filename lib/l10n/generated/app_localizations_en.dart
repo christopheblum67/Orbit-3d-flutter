@@ -2732,6 +2732,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get comingSoon => 'Coming soon';
 
   @override
+  String get settingsContact => 'Contact';
+
+  @override
+  String get settingsActivateApp => 'Activate app';
+
+  @override
   String get confirmAndContinue => 'Confirm and continue';
 
   @override

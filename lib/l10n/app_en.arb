@@ -657,6 +657,8 @@
     "cloudflareReset":  "Reset Cloudflare config",
     "cloudflareResetSubtitle":  "Disables TLS impersonation and restores the player\u0027s standard User-Agent",
     "comingSoon":  "Coming soon",
+    "settingsContact": "Contact",
+    "settingsActivateApp": "Activate app",
     "confirmAndContinue":  "Confirm and continue",
     "coverCacheCleared":  "Cover art cache cleared.",
     "createKidProfile":  "Create a kids profile",

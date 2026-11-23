@@ -145,7 +145,9 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161A22),
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF161A22)
+          : Theme.of(context).colorScheme.surface,
       builder: (sheetContext) {
         final l = AppLocalizations.of(sheetContext);
         return _ChannelPickerSheet(
@@ -452,7 +454,9 @@ class _ChannelPickerSheetState extends State<_ChannelPickerSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: scheme.brightness == Brightness.dark
+                    ? Colors.white24
+                    : scheme.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -535,7 +539,10 @@ class _ChannelPickerSheetState extends State<_ChannelPickerSheet> {
                                   ? scheme.primary
                                   : (widget.canAddMore()
                                       ? null
-                                      : Colors.white24),
+                                      : (scheme.brightness == Brightness.dark
+                                          ? Colors.white24
+                                          : scheme.onSurface
+                                              .withValues(alpha: 0.38))),
                             ),
                             onTap: () {
                               widget.onToggle(channel);

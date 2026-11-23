@@ -657,6 +657,8 @@
     "cloudflareReset":  "Restablecer configuración de Cloudflare",
     "cloudflareResetSubtitle":  "Desactiva la suplantación TLS y restaura el User-Agent estándar del reproductor",
     "comingSoon":  "Próximamente",
+    "settingsContact": "Contacto",
+    "settingsActivateApp": "Activar aplicación",
     "confirmAndContinue":  "Confirmar y continuar",
     "coverCacheCleared":  "Caché de carátulas purgado.",
     "createKidProfile":  "Crear un perfil infantil",
