@@ -10,6 +10,50 @@ import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('engine subtitle choice clears the old force-off preference',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      AdvancedSettings.kForceNoSubtitles: true,
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await container.read(advancedSettingsProvider.notifier).load();
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showPlayerEngineConfigSheet(context),
+              child: const Text('Ouvrir'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Ouvrir'));
+    await tester.pumpAndSettle();
+    final dropdown = find.byType(DropdownButton<VodSubtitleMode>);
+    expect(tester.widget<DropdownButton<VodSubtitleMode>>(dropdown).value,
+        VodSubtitleMode.disabled);
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sous-titres forcés').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+    final settings = container.read(advancedSettingsProvider);
+    expect(settings.vodSubtitleMode, VodSubtitleMode.forcedOnly);
+    expect(settings.subtitlesDisabled, isFalse);
+  });
+
   testWidgets('player and subtitle choices are localized', (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(800, 600);

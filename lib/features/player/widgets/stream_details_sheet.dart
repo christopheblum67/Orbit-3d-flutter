@@ -25,12 +25,13 @@ Future<void> showStreamDetailsSheet(
   if (isLive) {
     return showDialog<void>(
       context: context,
+      barrierColor: Colors.transparent,
       builder: (context) => LayoutBuilder(
         builder: (context, constraints) => Dialog(
           insetPadding: const EdgeInsets.all(12),
           clipBehavior: Clip.antiAlias,
           backgroundColor:
-              Theme.of(context).colorScheme.surface.withValues(alpha: 0.88),
+              Theme.of(context).colorScheme.surface.withValues(alpha: 0.75),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: math.max(0, constraints.maxHeight - 24),
@@ -38,7 +39,7 @@ Future<void> showStreamDetailsSheet(
             child: SizedBox(
               key: const ValueKey('live-stream-details-panel'),
               width: MediaQuery.orientationOf(context) == Orientation.landscape
-                  ? math.min(410, math.max(0, constraints.maxWidth - 24))
+                  ? math.min(600, math.max(0, constraints.maxWidth - 24))
                   : math.min(820, math.max(0, constraints.maxWidth - 24)),
               child: StreamDetailsSheet(
                 controller: controller,
@@ -54,15 +55,20 @@ Future<void> showStreamDetailsSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    barrierColor: Colors.transparent,
     backgroundColor: Colors.transparent,
     builder: (context) => Align(
       alignment: Alignment.bottomRight,
+      heightFactor: 1,
       child: SizedBox(
         width: MediaQuery.orientationOf(context) == Orientation.landscape
-            ? MediaQuery.sizeOf(context).width * 0.5
+            ? math.min(
+                MediaQuery.sizeOf(context).width,
+                math.max(480.0, MediaQuery.sizeOf(context).width * 0.62),
+              )
             : MediaQuery.sizeOf(context).width,
         child: Material(
-          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.88),
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.75),
           child: StreamDetailsSheet(
             controller: controller,
             mediaKey: mediaKey,
@@ -295,10 +301,28 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+    final landscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final audio =
+        _loading || _error != null ? <Widget>[] : _buildAudioSection(l);
+    final video =
+        _loading || _error != null ? <Widget>[] : _buildVideoSection(l);
+    final subtitles = _loading || _error != null
+        ? <Widget>[]
+        : [
+            ..._buildSubtitleNoneTiles(),
+            ..._buildEmbeddedSection(l),
+            ..._buildSubtitleSection(),
+          ];
+    final rows =
+        math.max(audio.length, math.max(video.length, subtitles.length));
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.55;
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.45,
+          maxHeight: landscape && !_loading && _error == null
+              ? math.min(maxHeight, 100 + rows * 52.0)
+              : maxHeight,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -372,17 +396,9 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                           policy: ReadingOrderTraversalPolicy(),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
-                              final audio = _buildAudioSection(l);
-                              final video = _buildVideoSection(l);
-                              final subtitles = [
-                                ..._buildSubtitleNoneTiles(),
-                                ..._buildEmbeddedSection(l),
-                                ..._buildSubtitleSection(),
-                              ];
-                              final landscape =
-                                  MediaQuery.orientationOf(context) ==
-                                      Orientation.landscape;
                               if (landscape) {
+                                final sectionWidth =
+                                    math.max(145.0, constraints.maxWidth / 3);
                                 return SingleChildScrollView(
                                   key: const ValueKey(
                                     'stream-details-landscape',
@@ -394,13 +410,14 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.stretch,
                                       children: [
-                                        _landscapeSection(
-                                            l.audioSection, audio),
-                                        _landscapeSection(
-                                            l.videoSection, video),
+                                        _landscapeSection(l.audioSection, audio,
+                                            sectionWidth),
+                                        _landscapeSection(l.videoSection, video,
+                                            sectionWidth),
                                         _landscapeSection(
                                           l.subtitleSection,
                                           subtitles,
+                                          sectionWidth,
                                         ),
                                       ],
                                     ),
@@ -469,8 +486,9 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
             ),
       ];
 
-  Widget _landscapeSection(String title, List<Widget> items) => SizedBox(
-        width: 210,
+  Widget _landscapeSection(String title, List<Widget> items, double width) =>
+      SizedBox(
+        width: width,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

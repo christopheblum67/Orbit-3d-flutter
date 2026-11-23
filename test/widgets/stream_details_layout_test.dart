@@ -82,6 +82,84 @@ FocusNode _trackFocus(WidgetTester tester, String label) {
 }
 
 void main() {
+  for (final manyTracks in [false, true]) {
+    testWidgets(
+        'movie details keep the video visible and fit landscape tracks'
+        ' (manyTracks=$manyTracks)', (tester) async {
+      tester.view.physicalSize = const Size(960, 540);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      final previous = VideoPlayerPlatform.instance;
+      final platform = _VideoPlatform(manyTracks: manyTracks);
+      VideoPlayerPlatform.instance = platform;
+      addTearDown(() {
+        VideoPlayerPlatform.instance = previous;
+        platform.events.close();
+      });
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse('https://example.test/video'),
+      );
+      final initialized = controller.initialize();
+      await tester.pump();
+      platform.events.add(VideoEvent(
+        eventType: VideoEventType.initialized,
+        duration: Duration.zero,
+        size: const Size(16, 9),
+      ));
+      await initialized;
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              backgroundColor: Colors.amber,
+              body: TextButton(
+                autofocus: true,
+                onPressed: () => showStreamDetailsSheet(
+                  context,
+                  controller,
+                  'video',
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      final sheet = find.byType(StreamDetailsSheet);
+      final sheetRect = tester.getRect(sheet);
+      final lists = find.descendant(of: sheet, matching: find.byType(ListView));
+      expect(lists, findsNWidgets(3));
+      expect(tester.getRect(lists.last).right,
+          lessThanOrEqualTo(sheetRect.right + 0.1));
+      expect(sheetRect.height, lessThanOrEqualTo(540 * 0.55 + 0.1));
+      if (!manyTracks) expect(sheetRect.height, lessThan(540 * 0.55));
+      final material = tester.widget<Material>(
+        find.ancestor(of: sheet, matching: find.byType(Material)).first,
+      );
+      expect(material.color!.a, closeTo(0.75, 0.01));
+      final barrier = tester
+          .widgetList<ModalBarrier>(
+            find.byType(ModalBarrier),
+          )
+          .last;
+      expect(barrier.color?.a ?? 0, 0);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+      expect(Focus.of(tester.element(find.text('Open'))).hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(controller.dispose());
+    });
+  }
+
   testWidgets('embedded subtitle labels follow the selected language',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -199,6 +277,12 @@ void main() {
       expect(dialog.height, lessThanOrEqualTo(size.height - 24));
       expect(dialog.height, lessThanOrEqualTo(size.height * 0.78 + 0.1));
       expect(dialog.width, lessThanOrEqualTo(size.width - 24));
+      final barrier = tester
+          .widgetList<ModalBarrier>(
+            find.byType(ModalBarrier),
+          )
+          .last;
+      expect(barrier.color?.a ?? 0, 0);
       expect(tester.takeException(), isNull);
       final landscape = size.width > size.height;
       final lists = find.byType(ListView);

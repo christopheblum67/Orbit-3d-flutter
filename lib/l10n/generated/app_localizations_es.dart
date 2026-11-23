@@ -1251,9 +1251,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsSubtitleOff => 'Sin subtítulos';
 
   @override
-  String get settingsSubtitleMoviesSeries => 'Subtítulos de películas y series';
-
-  @override
   String get settingsSubtitles => 'Subtítulos';
 
   @override
@@ -2592,8 +2589,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get accountPreferences => 'Preferencias de perfil';
 
   @override
-  String get accountPreferencesSubtitle =>
-      'Idioma, tema, restricciones de edad, PIN';
+  String get accountPreferencesSubtitle => 'Idioma, PIN';
 
   @override
   String get accountProfiles => 'Perfiles de usuario';
@@ -4213,9 +4209,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get unassignedLegacyLibraryItems =>
       'Algunos favoritos o descargas antiguos no se muestran porque se desconoce su suscripción original. Se conservan.';
-
-  @override
-  String get forceNoSubtitles => 'Forzar sin subtítulos';
 
   @override
   String get forceNoSubtitlesSubtitle =>

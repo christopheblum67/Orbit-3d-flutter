@@ -1207,9 +1207,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settingsSubtitleOff => 'بدون ترجمة';
 
   @override
-  String get settingsSubtitleMoviesSeries => 'ترجمة الأفلام والمسلسلات';
-
-  @override
   String get settingsSubtitles => 'الترجمة';
 
   @override
@@ -2498,7 +2495,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get accountPreferences => 'تفضيلات الملف الشخصي';
 
   @override
-  String get accountPreferencesSubtitle => 'اللغة، المظهر، قيود العمر، رمز PIN';
+  String get accountPreferencesSubtitle => 'اللغة، رمز PIN';
 
   @override
   String get accountProfiles => 'ملفات المستخدمين';
@@ -4084,9 +4081,6 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get unassignedLegacyLibraryItems =>
       'بعض المفضلات أو التنزيلات القديمة مخفية لأن اشتراكها الأصلي غير معروف. لا تزال محفوظة.';
-
-  @override
-  String get forceNoSubtitles => 'فرض عدم عرض الترجمة';
 
   @override
   String get forceNoSubtitlesSubtitle =>

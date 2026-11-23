@@ -122,6 +122,26 @@ void main() {
     expect(controller.actions, hasLength(2));
   });
 
+  test('disabled mode overrides a saved series subtitle preference', () async {
+    await PlayerTrackPrefs.setSeriesSubtitleLanguage('series', 'fr');
+    final prefs = SubtitlePreferences();
+    final controller = _Subtitles()..tracks = [full];
+    addTearDown(controller.dispose);
+    prefs.startScan(controller);
+
+    await prefs.applyAutomatic(
+      controller: controller,
+      tracks: controller.tracks,
+      contentType: PlaybackContentType.series,
+      generation: 1,
+      readForceNoSubtitles: () => false,
+      readMode: () => VodSubtitleMode.disabled,
+      seriesId: 'series',
+      isCurrent: () => true,
+    );
+    expect(controller.actions, ['disable:false']);
+  });
+
   test('force-off does not affect live playback or an inactive setting',
       () async {
     final prefs = SubtitlePreferences();

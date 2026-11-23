@@ -110,6 +110,9 @@ class AdvancedSettings {
   // Sous-titres
   final bool forceNoSubtitles;
 
+  bool get subtitlesDisabled =>
+      forceNoSubtitles || vodSubtitleMode == VodSubtitleMode.disabled;
+
   const AdvancedSettings({
     this.useTlsImpersonation = true,
     this.dnsProvider = '1.1.1.1 (Cloudflare DoH)',
@@ -393,6 +396,13 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
   Future<void> setVodSubtitleMode(VodSubtitleMode mode) async {
     state = state.copyWith(vodSubtitleMode: mode);
     await _persistString(AdvancedSettings.kVodSubtitleMode, mode.name);
+  }
+
+  Future<void> setSubtitlesDisabled(bool disabled) async {
+    if (!disabled && state.vodSubtitleMode == VodSubtitleMode.disabled) {
+      await setVodSubtitleMode(VodSubtitleMode.defaultSelection);
+    }
+    await setForceNoSubtitles(disabled);
   }
 
   Future<void> setZeroLagPrefetch(bool value) async {

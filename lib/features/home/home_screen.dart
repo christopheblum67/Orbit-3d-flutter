@@ -27,7 +27,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   PageController? _pageController;
   bool? _portraitPhone;
   final Map<String, FocusNode> _carouselFocusNodes = {};
+  final FocusNode _subscriptionFocus =
+      FocusNode(debugLabel: 'Home subscription');
   final FocusNode _bottomBarFocus = FocusNode(debugLabel: 'Home update');
+  final FocusNode _profileFocus = FocusNode(debugLabel: 'Home profile');
+  final FocusNode _settingsFocus = FocusNode(debugLabel: 'Home settings');
   double _currentPage = 0.0;
   String? _focusedCarouselRoute;
   int _focusMoveGeneration = 0;
@@ -147,7 +151,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       focusNode.dispose();
     }
     _carouselFocusNodes.clear();
+    _subscriptionFocus.dispose();
     _bottomBarFocus.dispose();
+    _profileFocus.dispose();
+    _settingsFocus.dispose();
     super.dispose();
   }
 
@@ -168,9 +175,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+        event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+        event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      ref.read(tvModeNotifierProvider).enable();
+    }
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       _focusMoveGeneration++;
-      _bottomBarFocus.requestFocus();
+      _profileFocus.requestFocus();
       return KeyEventResult.handled;
     }
     final direction = switch (event.logicalKey) {
@@ -316,7 +328,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: Column(
               children: [
                 Expanded(child: _buildOrbitCarousel(items)),
-                _buildBottomBar(context),
+                _buildBottomBar(context, items),
               ],
             ),
           ),
@@ -613,7 +625,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
   }
 
-  Widget _buildBottomBar(BuildContext context) {
+  Widget _buildBottomBar(BuildContext context, List<_OrbitItem> items) {
     final l = AppLocalizations.of(context);
     final bar = Row(
       textDirection: TextDirection.ltr,
@@ -624,6 +636,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: Row(
               children: [
                 _SubStatusChip(
+                  focusNode: _subscriptionFocus,
                   onOpenSubscriptions: () => context.go('/subscriptions'),
                 ),
                 const SizedBox(width: 10),
@@ -639,9 +652,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
         const SizedBox(width: 8),
-        const _ProfileShortcut(),
+        _ProfileShortcut(focusNode: _profileFocus),
         const SizedBox(width: 8),
         _SettingsShortcut(
+          focusNode: _settingsFocus,
           onPressed: () => context.go('/settings'),
         ),
       ],
@@ -658,12 +672,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       child: Focus(
         canRequestFocus: false,
         onKeyEvent: (_, event) {
-          if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
-              event.logicalKey == LogicalKeyboardKey.arrowUp) {
-            final node = _carouselFocusNodes[_focusedCarouselRoute];
-            if (node != null && node.context != null) {
-              _focusMoveGeneration++;
+          if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+            return KeyEventResult.ignored;
+          }
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.arrowUp ||
+              key == LogicalKeyboardKey.arrowLeft ||
+              key == LogicalKeyboardKey.arrowRight) {
+            ref.read(tvModeNotifierProvider).enable();
+          }
+          if (key == LogicalKeyboardKey.arrowUp) {
+            var index = items.indexWhere(
+              (item) => _carouselItemKey(item) == _focusedCarouselRoute,
+            );
+            if (index < 0) {
+              index = _currentPage.round().clamp(0, items.length - 1);
+            }
+            final node = _focusNodeFor(items[index]);
+            final generation = ++_focusMoveGeneration;
+            if (node.context != null) {
               node.requestFocus();
+            } else if (_pageController?.hasClients == true) {
+              _pageController!.jumpToPage(index);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted &&
+                    generation == _focusMoveGeneration &&
+                    node.context != null) {
+                  node.requestFocus();
+                }
+              });
+            }
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowDown) {
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowLeft ||
+              key == LogicalKeyboardKey.arrowRight) {
+            final nodes = [
+              _subscriptionFocus,
+              _bottomBarFocus,
+              _profileFocus,
+              _settingsFocus,
+            ];
+            final current = nodes.indexWhere((node) => node.hasFocus);
+            if (current >= 0) {
+              final next =
+                  (current + (key == LogicalKeyboardKey.arrowRight ? 1 : -1))
+                      .clamp(0, nodes.length - 1);
+              final target = nodes[next];
+              target.requestFocus();
+              if ((target == _subscriptionFocus || target == _bottomBarFocus) &&
+                  target.context != null) {
+                Scrollable.ensureVisible(target.context!);
+              }
               return KeyEventResult.handled;
             }
           }
@@ -676,9 +738,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 }
 
 class _SubStatusChip extends ConsumerWidget {
-  const _SubStatusChip({required this.onOpenSubscriptions});
+  const _SubStatusChip({
+    required this.onOpenSubscriptions,
+    required this.focusNode,
+  });
 
   final VoidCallback onOpenSubscriptions;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -687,7 +753,10 @@ class _SubStatusChip extends ConsumerWidget {
     final name = sub?.name ?? '';
     final validity = sub?.validityLabel ?? '';
     if (name.isEmpty) {
-      return _NoSubscriptionChip(onTap: onOpenSubscriptions);
+      return _NoSubscriptionChip(
+        focusNode: focusNode,
+        onTap: onOpenSubscriptions,
+      );
     }
     return IntrinsicHeight(
         child: Row(
@@ -728,6 +797,7 @@ class _SubStatusChip extends ConsumerWidget {
         ),
         const SizedBox(width: 10),
         TvFocus(
+          focusNode: focusNode,
           onActivate: onOpenSubscriptions,
           child: GestureDetector(
             onTap: onOpenSubscriptions,
@@ -762,9 +832,10 @@ class _SubStatusChip extends ConsumerWidget {
 }
 
 class _NoSubscriptionChip extends StatelessWidget {
-  const _NoSubscriptionChip({required this.onTap});
+  const _NoSubscriptionChip({required this.onTap, required this.focusNode});
 
   final VoidCallback onTap;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -801,6 +872,7 @@ class _NoSubscriptionChip extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         TvFocus(
+          focusNode: focusNode,
           onActivate: onTap,
           child: GestureDetector(
             onTap: onTap,
@@ -835,7 +907,9 @@ class _NoSubscriptionChip extends StatelessWidget {
 }
 
 class _ProfileShortcut extends ConsumerWidget {
-  const _ProfileShortcut();
+  const _ProfileShortcut({required this.focusNode});
+
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -844,6 +918,7 @@ class _ProfileShortcut extends ConsumerWidget {
     final label = profile?.firstName.trim();
     final displayName = label == null || label.isEmpty ? l.menuProfile : label;
     return TvFocus(
+      focusNode: focusNode,
       onActivate: () => context.go('/profiles'),
       child: Semantics(
         button: true,
@@ -894,12 +969,14 @@ class _ProfileShortcut extends ConsumerWidget {
 }
 
 class _SettingsShortcut extends StatelessWidget {
-  const _SettingsShortcut({required this.onPressed});
+  const _SettingsShortcut({required this.onPressed, required this.focusNode});
 
   final VoidCallback onPressed;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) => TvFocus(
+        focusNode: focusNode,
         onActivate: onPressed,
         child: GestureDetector(
           onTap: onPressed,

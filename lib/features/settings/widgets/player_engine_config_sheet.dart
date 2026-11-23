@@ -49,6 +49,7 @@ class _PlayerEngineConfigSheetState
   final Map<PlaybackContentType, FocusNode> _fallbackFocusNodes = {};
 
   late VodSubtitleMode _vodSubtitleModeDraft;
+  bool _vodSubtitleModeChanged = false;
   VideoDecoderMode _decoderModeDraft = VideoDecoderMode.auto;
   bool _decoderLoaded = false;
 
@@ -77,7 +78,8 @@ class _PlayerEngineConfigSheetState
     _draft = {
       for (final t in PlaybackContentType.values) t: s.configFor(t),
     };
-    _vodSubtitleModeDraft = s.vodSubtitleMode;
+    _vodSubtitleModeDraft =
+        s.subtitlesDisabled ? VodSubtitleMode.disabled : s.vodSubtitleMode;
     VideoDecoderPrefs.ensureLoaded().then((_) {
       if (!mounted) return;
       setState(() {
@@ -107,7 +109,10 @@ class _PlayerEngineConfigSheetState
   }
 
   void _setVodSubtitleMode(VodSubtitleMode mode) {
-    setState(() => _vodSubtitleModeDraft = mode);
+    setState(() {
+      _vodSubtitleModeDraft = mode;
+      _vodSubtitleModeChanged = true;
+    });
   }
 
   void _showExternalPlayerInfo() {
@@ -137,7 +142,10 @@ class _PlayerEngineConfigSheetState
       await n.setPlayerPrimary(entry.key, entry.value.primary);
       await n.setPlayerFallback(entry.key, entry.value.fallback);
     }
-    await n.setVodSubtitleMode(_vodSubtitleModeDraft);
+    if (_vodSubtitleModeChanged) {
+      await n.setVodSubtitleMode(_vodSubtitleModeDraft);
+      await n.setForceNoSubtitles(false);
+    }
     if (_decoderModeDraft != VideoDecoderPrefs.mode) {
       await VideoDecoderPrefs.setMode(_decoderModeDraft);
       PlayerProfileService.invalidate();

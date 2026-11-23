@@ -28,7 +28,8 @@ class SubtitlePreferences {
     bool forceOff() => _applyForcedOff(
           controller: controller,
           contentType: contentType,
-          forceNoSubtitles: readForceNoSubtitles(),
+          forceNoSubtitles:
+              readForceNoSubtitles() || readMode() == VodSubtitleMode.disabled,
         );
     if (!isCurrent() || forceOff()) return;
     await applyVod(

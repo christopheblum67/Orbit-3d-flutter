@@ -172,7 +172,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               }
             },
           },
-          child: Focus(autofocus: true, child: scaffold),
+          child: Focus(autofocus: location != '/home', child: scaffold),
         );
       },
     );

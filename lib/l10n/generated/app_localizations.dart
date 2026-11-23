@@ -2200,12 +2200,6 @@ abstract class AppLocalizations {
   /// **'Sans sous-titrage'**
   String get settingsSubtitleOff;
 
-  /// No description provided for @settingsSubtitleMoviesSeries.
-  ///
-  /// In fr, this message translates to:
-  /// **'Sous-titres des films et séries'**
-  String get settingsSubtitleMoviesSeries;
-
   /// No description provided for @settingsSubtitles.
   ///
   /// In fr, this message translates to:
@@ -4465,7 +4459,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountPreferencesSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Langue, thème, restrictions d\'âge, PIN'**
+  /// **'Langue, PIN'**
   String get accountPreferencesSubtitle;
 
   /// No description provided for @accountProfiles.
@@ -7425,12 +7419,6 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Certains anciens favoris ou téléchargements ne sont pas affichés : leur abonnement d’origine est inconnu. Ils restent conservés.'**
   String get unassignedLegacyLibraryItems;
-
-  /// No description provided for @forceNoSubtitles.
-  ///
-  /// In fr, this message translates to:
-  /// **'Forcer aucun sous-titre'**
-  String get forceNoSubtitles;
 
   /// No description provided for @forceNoSubtitlesSubtitle.
   ///

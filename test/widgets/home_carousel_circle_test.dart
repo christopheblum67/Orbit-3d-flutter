@@ -5,12 +5,161 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
+import 'package:orbit_3d_flutter/features/home_shell.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 void main() {
+  for (final size in [const Size(960, 540), const Size(390, 844)]) {
+    for (final tvEnabled in [false, true]) {
+      testWidgets('home shortcuts remain reachable: $size TV=$tvEnabled',
+          (tester) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final tvMode = TvModeNotifier();
+        if (tvEnabled) tvMode.enable();
+        addTearDown(tvMode.dispose);
+        final profile = UserProfile(
+          id: 'profile',
+          firstName: 'Christophe',
+          dateOfBirth: DateTime(1990),
+          gender: '',
+          favoriteGenres: const [],
+        );
+        final subscription = tvEnabled
+            ? Subscription(
+                id: 'subscription',
+                name: 'Subscription',
+                type: SubscriptionType.xtream,
+                createdAt: DateTime(2020),
+              )
+            : null;
+        final router = GoRouter(initialLocation: '/home', routes: [
+          ShellRoute(
+            builder: (_, __, child) => HomeShell(child: child),
+            routes: [
+              GoRoute(
+                path: '/home',
+                builder: (_, __) => const HomeScreen(),
+              ),
+              GoRoute(
+                path: '/settings',
+                builder: (_, __) =>
+                    const Scaffold(body: Text('Settings opened')),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/profiles',
+            builder: (_, __) => const Scaffold(body: Text('Profile opened')),
+          ),
+        ]);
+        addTearDown(router.dispose);
+        await tester.pumpWidget(ProviderScope(
+          overrides: [
+            tvModeNotifierProvider.overrideWithValue(tvMode),
+            sourceTypeProvider.overrideWith((ref) async => 'xtream'),
+            currentProfileProvider
+                .overrideWithBuild((ref, notifier) => profile),
+            activeSubscriptionProvider.overrideWith((ref) => subscription),
+            favoritesProvider.overrideWithBuild((ref, notifier) => {}),
+            lastRefreshTimestampProvider.overrideWithBuild(
+              (ref, notifier) => DateTime.now(),
+            ),
+          ],
+          child: MaterialApp.router(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+          ),
+        ));
+        await tester.pumpAndSettle();
+
+        Future<void> key(LogicalKeyboardKey key) async {
+          await tester.sendKeyEvent(key);
+          await tester.pumpAndSettle();
+        }
+
+        bool focused(Finder finder) =>
+            Focus.of(tester.element(finder)).hasPrimaryFocus;
+        final profileLabel = find.text('Christophe');
+        final settings = find.descendant(
+          of: find.byType(HomeScreen),
+          matching: find.byTooltip('Settings'),
+        );
+        final update = find.descendant(
+          of: find.byType(HomeScreen),
+          matching: find.byTooltip('Update all data'),
+        );
+
+        await key(LogicalKeyboardKey.arrowDown);
+        expect(focused(profileLabel), isTrue,
+            reason: 'Actual focus: ${FocusManager.instance.primaryFocus}');
+        expect(tvMode.enabled, isTrue);
+        final profileFocus = find.ancestor(
+          of: profileLabel,
+          matching: find.byType(TvFocus),
+        );
+        final highlighted = find.descendant(
+          of: profileFocus,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is AnimatedContainer &&
+                widget.decoration is BoxDecoration &&
+                ((widget.decoration! as BoxDecoration).boxShadow?.isNotEmpty ??
+                    false),
+          ),
+        );
+        expect(highlighted, findsOneWidget);
+        await key(LogicalKeyboardKey.arrowDown);
+        expect(focused(profileLabel), isTrue);
+        await key(LogicalKeyboardKey.arrowRight);
+        expect(focused(settings), isTrue);
+        await key(LogicalKeyboardKey.arrowRight);
+        expect(focused(settings), isTrue);
+        await key(LogicalKeyboardKey.arrowLeft);
+        expect(focused(profileLabel), isTrue);
+        await key(LogicalKeyboardKey.arrowLeft);
+        expect(focused(update), isTrue);
+        await key(LogicalKeyboardKey.arrowLeft);
+        expect(FocusManager.instance.primaryFocus?.debugLabel,
+            'Home subscription');
+        await key(LogicalKeyboardKey.arrowRight);
+        expect(focused(update), isTrue);
+        await key(LogicalKeyboardKey.arrowRight);
+        expect(focused(profileLabel), isTrue);
+        await key(LogicalKeyboardKey.select);
+        expect(find.text('Profile opened'), findsOneWidget);
+
+        router.go('/home');
+        await tester.pumpAndSettle();
+        await key(LogicalKeyboardKey.arrowDown);
+        expect(focused(profileLabel), isTrue);
+        await key(LogicalKeyboardKey.arrowRight);
+        await key(LogicalKeyboardKey.select);
+        expect(find.text('Settings opened'), findsOneWidget);
+        router.go('/home');
+        await tester.pumpAndSettle();
+        await key(LogicalKeyboardKey.arrowDown);
+        await key(LogicalKeyboardKey.arrowUp);
+        expect(
+          tester
+              .widget<TvFocus>(find.byKey(const ValueKey('/live')))
+              .focusNode!
+              .hasPrimaryFocus,
+          isTrue,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('M3U home carousel exposes the VOD and series tiles',
       (tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
@@ -302,7 +451,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Home update');
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Home profile');
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();

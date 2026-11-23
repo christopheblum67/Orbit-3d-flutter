@@ -15,7 +15,6 @@ import 'package:orbit_3d_flutter/services/conditional_xmltv_cache.dart';
 import 'package:orbit_3d_flutter/services/video_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
@@ -158,6 +157,31 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
   }
 }
 
+class _SettingsGrid extends StatelessWidget {
+  const _SettingsGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final columns = (constraints.maxWidth / 150).floor().clamp(1, 4);
+      const gap = 12.0;
+      final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+      final textScale =
+          MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [
+          for (final child in children)
+            SizedBox(width: width, height: 172 * textScale, child: child),
+        ],
+      );
+    });
+  }
+}
+
 /// ─── Tuile de navigation réutilisable ────────────────────────────
 class _NavTile extends StatelessWidget {
   const _NavTile({
@@ -165,7 +189,6 @@ class _NavTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.trailing,
     this.autofocus = false,
     this.onUp,
   });
@@ -174,7 +197,6 @@ class _NavTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-  final Widget? trailing;
 
   /// Focus initial (premier élément de l'onglet, en mode TV).
   final bool autofocus;
@@ -183,11 +205,6 @@ class _NavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // `TvFocus` remplace l'ancien `Focus` manuel : l'activation Enter / Select /
-    // Space / GamepadA reste portée par `onActivate`, et la tuile gagne en plus
-    // le halo + le scale réservés au mode TV. Le `Builder` lit ensuite
-    // `Focus.of(context)` qui pointe (de nouveau) sur le nœud de `TvFocus` :
-    // le style « focalisé » du titre/chevron suit donc le focus réel.
     return TvFocus(
       autofocus: autofocus,
       onActivate: onTap,
@@ -203,39 +220,68 @@ class _NavTile extends StatelessWidget {
       child: Builder(
         builder: (context) {
           final focused = Focus.of(context).hasFocus;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: AppCard(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: ExcludeFocus(
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    icon,
-                    color: focused ? scheme.primary : scheme.onSurfaceVariant,
-                  ),
-                  title: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
-                      color: focused ? scheme.primary : null,
+          return ExcludeFocus(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(16),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color:
+                          scheme.primary.withValues(alpha: focused ? 0.9 : 0.4),
+                    ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        scheme.primary.withValues(alpha: 0.16),
+                        scheme.surfaceContainer,
+                        scheme.tertiary.withValues(alpha: 0.12),
+                      ],
                     ),
                   ),
-                  subtitle: Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: scheme.onSurfaceVariant,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 25,
+                          backgroundColor:
+                              scheme.primary.withValues(alpha: 0.14),
+                          child: Icon(icon, size: 27, color: scheme.primary),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: focused ? scheme.primary : scheme.onSurface,
+                          ),
+                        ),
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            subtitle,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  trailing: trailing ??
-                      Icon(
-                        Icons.chevron_right,
-                        color:
-                            focused ? scheme.primary : scheme.onSurfaceVariant,
-                      ),
-                  onTap: onTap,
                 ),
               ),
             ),
@@ -268,49 +314,63 @@ class _AccountSection extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           SettingsSectionTitle(l.sectionAccountProfile),
-          _NavTile(
-            // Premier élément focusable de l'écran : focus initial en mode TV.
-            autofocus: true,
-            onUp: onFirstUp,
-            icon: Icons.manage_accounts_rounded,
-            title: l.accountProfiles,
-            subtitle: l.accountProfilesSubtitle,
-            onTap: () => context.go('/profiles'),
-          ),
-          _NavTile(
-            icon: Icons.subscriptions_rounded,
-            title: l.accountSubscriptions,
-            subtitle: sub == null
-                ? l.accountNoSubscription
-                : '${sub.name} · ${sub.validityLabel}',
-            onTap: () => context.go('/subscriptions'),
-          ),
-          _NavTile(
-            icon: Icons.settings_outlined,
-            title: l.accountPreferences,
-            subtitle: l.accountPreferencesSubtitle,
-            onTap: () => context.go('/profile/preferences'),
-          ),
-          _NavTile(
-            icon: Icons.memory_rounded,
-            title: l.accountDeviceProfile,
-            subtitle: l.accountDeviceProfileSubtitle(
-              ref.watch(deviceProfileProvider).label,
+          _SettingsGrid(children: [
+            _NavTile(
+              // Premier élément focusable de l'écran : focus initial en mode TV.
+              autofocus: true,
+              onUp: onFirstUp,
+              icon: Icons.manage_accounts_rounded,
+              title: l.accountProfiles,
+              subtitle: l.accountProfilesSubtitle,
+              onTap: () => context.go('/profiles'),
             ),
-            onTap: () => context.go('/onboarding'),
-          ),
+            _NavTile(
+              icon: Icons.subscriptions_rounded,
+              title: l.accountSubscriptions,
+              subtitle: sub == null
+                  ? l.accountNoSubscription
+                  : '${sub.name} · ${sub.validityLabel}',
+              onTap: () => context.go('/subscriptions'),
+            ),
+            _NavTile(
+              icon: Icons.settings_outlined,
+              title: l.accountPreferences,
+              subtitle: l.accountPreferencesSubtitle,
+              onTap: () => context.go('/profile/preferences'),
+            ),
+            _NavTile(
+              icon: Icons.memory_rounded,
+              title: l.accountDeviceProfile,
+              subtitle: l.accountDeviceProfileSubtitle(
+                ref.watch(deviceProfileProvider).label,
+              ),
+              onTap: () => context.go('/onboarding'),
+            ),
+          ]),
           const SizedBox(height: 8),
           SettingsSectionTitle(l.sectionCloudSync),
-          _NavTile(
-            icon: Icons.account_circle_outlined,
-            title: l.settingsCloudAccount,
-            subtitle: l.settingsCloudSignIn,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const CloudAccountScreen(),
+          _SettingsGrid(children: [
+            _NavTile(
+              icon: Icons.account_circle_outlined,
+              title: l.settingsCloudAccount,
+              subtitle: l.settingsCloudSignIn,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const CloudAccountScreen(),
+                ),
               ),
             ),
-          ),
+            if (syncState.unlocked &&
+                !syncState.busy &&
+                syncState.conflictScope == null)
+              _NavTile(
+                icon: Icons.sync_rounded,
+                title: l.cloudSyncNow,
+                subtitle: l.cloudSyncNowSubtitle,
+                onTap: () =>
+                    ref.read(encryptedActivitySyncProvider.notifier).syncAll(),
+              ),
+          ]),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(l.cloudSyncProfileHelp),
@@ -338,41 +398,27 @@ class _AccountSection extends ConsumerWidget {
             ),
           if (syncState.unlocked && syncState.busy)
             ListTile(title: Text(l.cloudStartingSync)),
-          if (syncState.unlocked &&
-              !syncState.busy &&
-              syncState.conflictScope == null)
-            TvFocus(
-              onActivate: () =>
-                  ref.read(encryptedActivitySyncProvider.notifier).syncAll(),
-              child: SettingsActionTile(
-                title: l.cloudSyncNow,
-                subtitle: l.cloudSyncNowSubtitle,
-                icon: Icons.sync_rounded,
-                onTap: () =>
-                    ref.read(encryptedActivitySyncProvider.notifier).syncAll(),
-              ),
-            ),
           const SizedBox(height: 8),
           SettingsSectionTitle(l.sectionBackup),
-          _NavTile(
-            icon: Icons.upload_outlined,
-            title: l.backupExport,
-            subtitle: l.backupExportSubtitle,
-            // `unawaited` explicite : ces deux écritures sont déclenchées par un appui et
-            // ne doivent pas bloquer le tap. Les helpers retournent désormais
-            // `Future<void>` : en `static void ... async` l'appelant ne pouvait
-            // ni attendre, ni voir les exceptions, qui remontaient en zone non
-            // rattrapable.
-            onTap: () => unawaited(_exportSettings(context, ref)),
-            trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-          ),
-          _NavTile(
-            icon: Icons.download_outlined,
-            title: l.backupImport,
-            subtitle: l.backupImportSubtitle,
-            onTap: () => unawaited(_importSettings(context, ref)),
-            trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-          ),
+          _SettingsGrid(children: [
+            _NavTile(
+              icon: Icons.upload_outlined,
+              title: l.backupExport,
+              subtitle: l.backupExportSubtitle,
+              // `unawaited` explicite : ces deux écritures sont déclenchées par un appui et
+              // ne doivent pas bloquer le tap. Les helpers retournent désormais
+              // `Future<void>` : en `static void ... async` l'appelant ne pouvait
+              // ni attendre, ni voir les exceptions, qui remontaient en zone non
+              // rattrapable.
+              onTap: () => unawaited(_exportSettings(context, ref)),
+            ),
+            _NavTile(
+              icon: Icons.download_outlined,
+              title: l.backupImport,
+              subtitle: l.backupImportSubtitle,
+              onTap: () => unawaited(_importSettings(context, ref)),
+            ),
+          ]),
         ],
       ),
     );
@@ -484,33 +530,38 @@ class _NetworkSecuritySection extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── Groupe RÉSEAU (anti-throttle, DNS, Cloudflare) ──
-          SettingsGroupDivider(l.tabNetwork, icon: Icons.wifi_tethering),
-          // `_DnsProviderTile` : le `DropdownButton` porte déjà son propre
-          // nœud de focus (Enter ouvre la liste nativement) ; le wrapper
-          // parent est `canRequestFocus: false`. Pas de `TvFocus` ici pour ne
-          // pas créer un second candidat de traversal qui masquerait le champ.
-          const _DnsProviderTile(),
-          const SizedBox(height: 16),
-          SettingsSectionTitle(l.sectionCloudflare),
-          TvFocus(
-            onActivate: resetCloudflare,
-            child: SettingsActionTile(
-              title: l.cloudflareReset,
-              subtitle: l.cloudflareResetSubtitle,
-              icon: Icons.restore_outlined,
-              onTap: resetCloudflare,
+          SettingsSectionTitle(l.tabNetwork),
+          _SettingsGrid(children: [
+            _NavTile(
+              icon: Icons.public,
+              title: l.dnsProvider,
+              subtitle: l.dnsProviderSubtitle,
+              onTap: () => _showSettingsDialog(
+                context,
+                title: l.tabNetwork,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _DnsProviderTile(),
+                    SettingsSectionTitle(l.sectionCloudflare),
+                    TextButton.icon(
+                      onPressed: resetCloudflare,
+                      icon: const Icon(Icons.restore_outlined),
+                      label: Text(l.cloudflareReset),
+                    ),
+                    Text(l.cloudflareResetSubtitle),
+                  ],
+                ),
+              ),
             ),
-          ),
-          // ── Groupe SÉCURITÉ (contrôle parental, résilience, mentions) ──
-          SettingsGroupDivider(l.tabSecurity, icon: Icons.lock_outline),
-          SettingsSectionTitle(l.sectionLegal),
-          _NavTile(
-            icon: Icons.balance_outlined,
-            title: l.legalNotice,
-            subtitle: l.legalNoticeSubtitle,
-            onTap: () => context.go('/legal?flow=settings'),
-          ),
+            _NavTile(
+              icon: Icons.balance_outlined,
+              title: l.legalNotice,
+              subtitle: l.legalNoticeSubtitle,
+              onTap: () => context.go('/legal?flow=settings'),
+            ),
+          ]),
         ],
       ),
     );
@@ -531,88 +582,40 @@ class _DnsProviderTile extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final s = ref.watch(advancedSettingsProvider);
     final n = ref.read(advancedSettingsProvider.notifier);
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Focus(
-          // Le nœud de focus est porté par le `DropdownButton` (voir plus bas) ;
-          // le partager avec ce `Focus` parent levait « FocusNode._reparent:
-          // assert(child != this) » à chaque frame. Parent exposant juste
-          // `hasFocus` pour le halo : il ne doit pas être une cible de focus.
-          canRequestFocus: false,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.space ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA ||
-                    event.logicalKey == LogicalKeyboardKey.arrowDown)) {
-              return KeyEventResult.ignored;
-            }
-            return KeyEventResult.ignored;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(l.dnsProvider),
+        Text(l.dnsProviderSubtitle,
+            style: Theme.of(context).textTheme.bodySmall),
+        DropdownButton<String>(
+          autofocus: true,
+          isExpanded: true,
+          value:
+              _options.contains(s.dnsProvider) ? s.dnsProvider : _options.last,
+          borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+          items: [
+            for (final o in _options)
+              DropdownMenuItem(
+                value: o,
+                child: Text(
+                  o == _options.last ? l.settingsSystemAutomatic : o,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: (v) {
+            if (v != null) n.setDnsProvider(v);
           },
-          child: Builder(
-            builder: (context) {
-              final focused = Focus.of(context).hasFocus;
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  Icons.dns_outlined,
-                  color: focused ? scheme.primary : scheme.onSurfaceVariant,
-                ),
-                title: Text(
-                  l.dnsProvider,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
-                    color: focused ? scheme.primary : null,
-                  ),
-                ),
-                subtitle: Text(
-                  l.dnsProviderSubtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                trailing: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _options.contains(s.dnsProvider)
-                        ? s.dnsProvider
-                        : _options.last,
-                    isDense: true,
-                    borderRadius: BorderRadius.circular(
-                      AppConstants.radiusLg,
-                    ),
-                    items: [
-                      for (final o in _options)
-                        DropdownMenuItem(
-                          value: o,
-                          child: Text(
-                            o == _options.last ? l.settingsSystemAutomatic : o,
-                          ),
-                        ),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) n.setDnsProvider(v);
-                    },
-                  ),
-                ),
-              );
-            },
-          ),
         ),
-      ),
+      ],
     );
   }
 }
 
 /// ─── LECTURE & AUDIO ─────────────────────────────────────────────
-/// Fusion des anciens menus « Lecteur » (vidéo) et « Audio ». Le séparateur
-/// de groupe distinctif marque le passage de la configuration de lecture à la
-/// configuration audio.
 class _PlayerAudioSection extends ConsumerWidget {
   const _PlayerAudioSection();
 
@@ -620,207 +623,210 @@ class _PlayerAudioSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
     return FocusTraversalGroup(
       policy: ReadingOrderTraversalPolicy(),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── Groupe LECTURE (moteurs, zapping, mémoire) ──
-          SettingsGroupDivider(l.tabPlayer, icon: Icons.play_circle_outline),
-          SettingsSectionTitle(l.sectionEngines),
-          const _PlayerEngineTile(),
-          const SizedBox(height: 8),
-          SettingsSectionTitle(l.settingsSubtitles),
-          const _SubtitleModeTile(),
-          const SizedBox(height: 8),
-          SettingsSectionTitle(l.sectionZapping),
-          TvFocus(
-            onActivate: () => n.setZeroLagPrefetch(!s.zeroLagPrefetch),
-            child: SettingsSwitchTile(
-              title: l.instantZapping,
-              subtitle: l.instantZappingSubtitle,
-              value: s.zeroLagPrefetch,
-              onChanged: n.setZeroLagPrefetch,
-              icon: Icons.fast_forward_outlined,
+          SettingsSectionTitle(l.tabPlayer),
+          _SettingsGrid(children: [
+            _NavTile(
+              icon: Icons.play_circle_outline,
+              title: l.enginesTile,
+              subtitle: l.enginesSubtitle(
+                s.playerLive.primary.label,
+                s.playerVod.primary.label,
+              ),
+              onTap: () => showPlayerEngineConfigSheet(context),
             ),
-          ),
-          const SizedBox(height: 8),
-          SettingsSectionTitle(l.sectionMemory),
-          // Pas de `TvFocus` autour du panneau : ses boutons d'action sont
-          // déjà des `OutlinedButton` focusables nativement, alors qu'un
-          // wrapper englobant aurait une géométrie strictement plus grande
-          // qu'eux — la navigation directionnelle (flèches) exclut les nœuds
-          // à l'intérieur de la tuile courante : les actions seraient
-          // inatteignables au D-pad.
-          const MemorySettingsPanel(),
-          // ── Groupe AUDIO (night focus, sync A/V, sortie) ──
-          SettingsGroupDivider(l.tabAudio, icon: Icons.equalizer),
-          SettingsSectionTitle(l.sectionAudioNight),
-          TvFocus(
-            onActivate: () => showAudioControlsSheet(context),
-            child: SettingsNavTile(
+            _NavTile(
+              icon: Icons.subtitles_outlined,
+              title: l.tabPlayer,
+              subtitle: '${l.settingsSubtitles} · ${l.sectionZapping}',
+              onTap: () => _showSettingsDialog(
+                context,
+                title: l.tabPlayer,
+                child: const _PlaybackOptions(),
+              ),
+            ),
+            _NavTile(
               icon: Icons.nightlight_outlined,
               title: l.audioAndNightFocus,
               subtitle: l.audioAndNightFocusSubtitle,
-              onTap: () => showAudioControlsSheet(context),
-            ),
-          ),
-          SettingsSectionTitle(l.nightFocusTitle),
-          TvFocus(
-            onActivate: () => n.setNightFocus(!s.nightFocusEnabled),
-            child: SettingsSwitchTile(
-              title: l.nightFocusEnable,
-              subtitle: l.nightFocusEnableSubtitle,
-              value: s.nightFocusEnabled,
-              onChanged: n.setNightFocus,
-              icon: Icons.nightlight_round,
-            ),
-          ),
-          TvFocus(
-            onActivate: () =>
-                n.setNightFocusDialogueBoost(!s.nightFocusDialogueBoost),
-            child: SettingsSwitchTile(
-              title: l.dialogueBoost,
-              subtitle: l.dialogueBoostSubtitle,
-              value: s.nightFocusDialogueBoost,
-              onChanged: n.setNightFocusDialogueBoost,
-              icon: Icons.record_voice_over,
-            ),
-          ),
-          TvFocus(
-            onActivate: () =>
-                n.setNightFocusBassKiller(!s.nightFocusBassKiller),
-            child: SettingsSwitchTile(
-              title: l.bassKiller,
-              subtitle: l.bassKillerSubtitle,
-              value: s.nightFocusBassKiller,
-              onChanged: n.setNightFocusBassKiller,
-              icon: Icons.equalizer,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SettingsSectionTitle(l.sectionAvSync),
-          TvFocus(
-            onActivate: () => n.setNightFocusAudioShiftMs(
-              s.nightFocusAudioShiftMs != 0 ? 0 : 50,
-            ),
-            child: SettingsSwitchTile(
-              title: l.audioShift,
-              subtitle: l.audioShiftSubtitle,
-              value: s.nightFocusAudioShiftMs != 0,
-              onChanged: (v) => n.setNightFocusAudioShiftMs(v ? 0 : 50),
-              icon: Icons.timer_outlined,
-            ),
-          ),
-          if (s.nightFocusAudioShiftMs != 0) ...[
-            TvFocus(
-              onActivate: () => _showAvSyncDialog(context, ref),
-              child: SettingsActionTile(
-                title: l.manualAvCalibration,
-                subtitle:
-                    l.manualAvCalibrationSubtitle(s.nightFocusAudioShiftMs),
-                icon: Icons.timer_outlined,
-                onTap: () => _showAvSyncDialog(context, ref),
+              onTap: () => _showSettingsDialog(
+                context,
+                title: l.audioAndNightFocus,
+                child: const _AudioOptions(),
               ),
             ),
-          ],
-          const SizedBox(height: 16),
-          SettingsSectionTitle(l.sectionOutput),
-          TvFocus(
-            onActivate: () => n.setNightFocusVolumeNormalization(
-              !s.nightFocusVolumeNormalization,
+            _NavTile(
+              icon: Icons.memory_rounded,
+              title: l.sectionMemory,
+              subtitle: l.memoryPanelTitle,
+              onTap: () => _showSettingsDialog(
+                context,
+                title: l.sectionMemory,
+                child: const MemorySettingsPanel(),
+              ),
             ),
-            child: SettingsSwitchTile(
-              title: l.volumeNormalization,
-              subtitle: l.volumeNormalizationSubtitle,
-              value: s.nightFocusVolumeNormalization,
-              onChanged: n.setNightFocusVolumeNormalization,
-              icon: Icons.volume_up_outlined,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TvFocus(
-            onActivate: () => n.setForceNoSubtitles(!s.forceNoSubtitles),
-            child: SettingsSwitchTile(
-              title: l.forceNoSubtitles,
-              subtitle: l.forceNoSubtitlesSubtitle,
-              value: s.forceNoSubtitles,
-              onChanged: n.setForceNoSubtitles,
-              icon: Icons.subtitles_off_outlined,
-            ),
-          ),
+          ]),
         ],
       ),
     );
   }
 }
 
-class _SubtitleModeTile extends ConsumerWidget {
-  const _SubtitleModeTile();
+Future<void> _showSettingsDialog(
+  BuildContext context, {
+  required String title,
+  required Widget child,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: SizedBox(
+        width: 520,
+        child: FocusTraversalGroup(
+          policy: ReadingOrderTraversalPolicy(),
+          child: SingleChildScrollView(child: child),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(AppLocalizations.of(context).close),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SettingsToggle extends StatelessWidget {
+  const _SettingsToggle({
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.autofocus = false,
+    this.checkbox = false,
+  });
+
+  final String title;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool autofocus;
+  final bool checkbox;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final labels = <VodSubtitleMode, String>{
-      VodSubtitleMode.defaultSelection: l.settingsSubtitleDefault,
-      VodSubtitleMode.forcedOnly: l.settingsSubtitleForced,
-      VodSubtitleMode.disabled: l.settingsSubtitleOff,
-    };
-    final mode = ref.watch(advancedSettingsProvider).vodSubtitleMode;
-    return SettingsNavTile(
-      icon: Icons.subtitles_outlined,
-      title: l.settingsSubtitleMoviesSeries,
-      subtitle: labels[mode]!,
-      onTap: () async {
-        final picked = await showDialog<VodSubtitleMode>(
-          context: context,
-          builder: (ctx) => SimpleDialog(
-            title: Text(l.settingsSubtitles),
-            children: [
-              for (final entry in labels.entries)
-                ListTile(
-                  autofocus: entry.key == mode,
-                  selected: entry.key == mode,
-                  leading: Icon(
-                    entry.key == mode
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
-                  ),
-                  title: Text(entry.value),
-                  onTap: () => Navigator.of(ctx).pop(entry.key),
-                ),
-            ],
-          ),
-        );
-        if (picked != null) {
-          await ref
-              .read(advancedSettingsProvider.notifier)
-              .setVodSubtitleMode(picked);
-        }
-      },
+  Widget build(BuildContext context) {
+    return TvFocus(
+      autofocus: autofocus,
+      onActivate: () => onChanged(!value),
+      child: ExcludeFocus(
+        child: checkbox
+            ? CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(title),
+                value: value,
+                onChanged: (v) {
+                  if (v != null) onChanged(v);
+                },
+              )
+            : SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(title),
+                value: value,
+                onChanged: onChanged,
+              ),
+      ),
     );
   }
 }
 
-class _PlayerEngineTile extends ConsumerWidget {
-  const _PlayerEngineTile();
+class _PlaybackOptions extends ConsumerWidget {
+  const _PlaybackOptions();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final s = ref.watch(advancedSettingsProvider);
-    return TvFocus(
-      onActivate: () => showPlayerEngineConfigSheet(context),
-      child: SettingsNavTile(
-        icon: Icons.play_circle_outline,
-        title: l.enginesTile,
-        subtitle: l.enginesSubtitle(
-          s.playerLive.primary.label,
-          s.playerVod.primary.label,
+    final n = ref.read(advancedSettingsProvider.notifier);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SettingsToggle(
+          title: l.forceNoSubtitlesSubtitle,
+          value: s.subtitlesDisabled,
+          onChanged: n.setSubtitlesDisabled,
+          checkbox: true,
+          autofocus: true,
         ),
-        onTap: () => showPlayerEngineConfigSheet(context),
-      ),
+        _SettingsToggle(
+          title: l.instantZapping,
+          value: s.zeroLagPrefetch,
+          onChanged: n.setZeroLagPrefetch,
+        ),
+      ],
+    );
+  }
+}
+
+class _AudioOptions extends ConsumerWidget {
+  const _AudioOptions();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final s = ref.watch(advancedSettingsProvider);
+    final n = ref.read(advancedSettingsProvider.notifier);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SettingsToggle(
+          title: l.nightFocusEnable,
+          value: s.nightFocusEnabled,
+          onChanged: n.setNightFocus,
+          autofocus: true,
+        ),
+        _SettingsToggle(
+          title: l.dialogueBoost,
+          value: s.nightFocusDialogueBoost,
+          onChanged: n.setNightFocusDialogueBoost,
+        ),
+        _SettingsToggle(
+          title: l.bassKiller,
+          value: s.nightFocusBassKiller,
+          onChanged: n.setNightFocusBassKiller,
+        ),
+        _SettingsToggle(
+          title: l.audioShift,
+          value: s.nightFocusAudioShiftMs != 0,
+          onChanged: (value) => n.setNightFocusAudioShiftMs(value ? 50 : 0),
+        ),
+        if (s.nightFocusAudioShiftMs != 0)
+          TextButton.icon(
+            onPressed: () => _showAvSyncDialog(context, ref),
+            icon: const Icon(Icons.timer_outlined),
+            label: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.manualAvCalibration),
+                Text(l.manualAvCalibrationSubtitle(s.nightFocusAudioShiftMs)),
+              ],
+            ),
+          ),
+        _SettingsToggle(
+          title: l.volumeNormalization,
+          value: s.nightFocusVolumeNormalization,
+          onChanged: n.setNightFocusVolumeNormalization,
+        ),
+        TextButton.icon(
+          onPressed: () => showAudioControlsSheet(context),
+          icon: const Icon(Icons.equalizer),
+          label: Text(l.audioAndNightFocus),
+        ),
+      ],
     );
   }
 }
@@ -962,96 +968,63 @@ class _AdvancedSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    // Un seul `watch` pour les interrupteurs de l'onglet (valeur identique au
-    // sein d'un même build) ; les activations TV lisent l'état courant via
-    // `read` — `watch` dans un callback serait illégal chez Riverpod.
-    final adv = ref.watch(advancedSettingsProvider);
-    final advNotifier = ref.read(advancedSettingsProvider.notifier);
     return FocusTraversalGroup(
       policy: ReadingOrderTraversalPolicy(),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           SettingsSectionTitle(l.sectionAccessibility),
-          TvFocus(
-            onActivate: () => advNotifier.setHighContrast(!adv.highContrast),
-            child: SettingsSwitchTile(
-              title: l.highContrast,
-              subtitle: l.highContrastSubtitle,
-              value: adv.highContrast,
-              onChanged: advNotifier.setHighContrast,
-              icon: Icons.contrast_outlined,
-            ),
-          ),
-          TvFocus(
-            onActivate: () =>
-                advNotifier.setDpadNavigation(!adv.dpadNavigation),
-            child: SettingsSwitchTile(
-              title: l.dpadNavigation,
-              subtitle: l.dpadNavigationSubtitle,
-              value: adv.dpadNavigation,
-              onChanged: advNotifier.setDpadNavigation,
+          _SettingsGrid(children: [
+            _NavTile(
               icon: Icons.tv_rounded,
+              title: l.sectionAccessibility,
+              subtitle: l.dpadNavigation,
+              onTap: () => _showSettingsDialog(
+                context,
+                title: l.sectionAccessibility,
+                child: const _AccessibilityOptions(),
+              ),
             ),
-          ),
-          TvFocus(
-            // Bascule identique à l'interrupteur : >1.0 = grosse police.
-            onActivate: () => advNotifier.setFontSizeScale(
-              adv.fontSizeScale > 1.0 ? 1.0 : 1.3,
-            ),
-            child: SettingsSwitchTile(
-              title: l.fontSize,
-              subtitle: l.fontSizeSubtitle,
-              value: adv.fontSizeScale > 1.0,
-              onChanged: (value) {
-                advNotifier.setFontSizeScale(value ? 1.3 : 1.0);
-              },
-              icon: Icons.format_size_outlined,
-            ),
-          ),
+          ]),
           const SizedBox(height: 16),
           SettingsSectionTitle(l.sectionRecommendations),
-          _NavTile(
-            icon: Icons.recommend_rounded,
-            title: l.matchmaking,
-            subtitle: l.matchmakingSubtitle,
-            onTap: () => context.go('/matchmaking'),
-          ),
-          _NavTile(
-            icon: Icons.filter_list_rounded,
-            title: l.settingsCategoryFilters,
-            subtitle: l.settingsCategoryFiltersHelp,
-            onTap: () => context.push('/category-filters'),
-          ),
+          _SettingsGrid(children: [
+            _NavTile(
+              icon: Icons.recommend_rounded,
+              title: l.matchmaking,
+              subtitle: l.matchmakingSubtitle,
+              onTap: () => context.go('/matchmaking'),
+            ),
+            _NavTile(
+              icon: Icons.filter_list_rounded,
+              title: l.settingsCategoryFilters,
+              subtitle: l.settingsCategoryFiltersHelp,
+              onTap: () => context.push('/category-filters'),
+            ),
+          ]),
           const SizedBox(height: 16),
           SettingsSectionTitle(l.sectionDiagnostics),
-          if (Platform.isAndroid)
+          _SettingsGrid(children: [
+            if (Platform.isAndroid)
+              _NavTile(
+                icon: Icons.system_update_alt,
+                title: l.updateTitle,
+                subtitle: l.updateSettingsSubtitle,
+                onTap: () => showUpdateDialog(context),
+              ),
             _NavTile(
-              icon: Icons.system_update_alt,
-              title: l.updateTitle,
-              subtitle: l.updateSettingsSubtitle,
-              onTap: () => showUpdateDialog(context),
+              icon: Icons.cleaning_services_outlined,
+              title: l.clearCaches,
+              subtitle: l.clearCachesSubtitle,
+              onTap: () => _clearAllCaches(context, ref),
             ),
-          _NavTile(
-            icon: Icons.cleaning_services_outlined,
-            title: l.clearCaches,
-            subtitle: l.clearCachesSubtitle,
-            onTap: () => _clearAllCaches(context, ref),
-            trailing: Icon(
-              Icons.chevron_right,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            _NavTile(
+              icon: Icons.restart_alt_outlined,
+              title: l.resetApp,
+              subtitle: l.resetAppSubtitle,
+              onTap: () => _factoryReset(context, ref),
             ),
-          ),
-          _NavTile(
-            icon: Icons.restart_alt_outlined,
-            title: l.resetApp,
-            subtitle: l.resetAppSubtitle,
-            onTap: () => _factoryReset(context, ref),
-            trailing: Icon(
-              Icons.chevron_right,
-              color: Theme.of(context).colorScheme.error,
-            ),
-          ),
+          ]),
           const SizedBox(height: 24),
           const _AdvancedEntry(),
         ],
@@ -1231,6 +1204,38 @@ class _AdvancedSection extends ConsumerWidget {
       );
       context.go('/onboarding');
     }
+  }
+}
+
+class _AccessibilityOptions extends ConsumerWidget {
+  const _AccessibilityOptions();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final s = ref.watch(advancedSettingsProvider);
+    final n = ref.read(advancedSettingsProvider.notifier);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SettingsToggle(
+          title: l.highContrast,
+          value: s.highContrast,
+          onChanged: n.setHighContrast,
+          autofocus: true,
+        ),
+        _SettingsToggle(
+          title: l.dpadNavigation,
+          value: s.dpadNavigation,
+          onChanged: n.setDpadNavigation,
+        ),
+        _SettingsToggle(
+          title: l.fontSize,
+          value: s.fontSizeScale > 1,
+          onChanged: (value) => n.setFontSizeScale(value ? 1.3 : 1),
+        ),
+      ],
+    );
   }
 }
 

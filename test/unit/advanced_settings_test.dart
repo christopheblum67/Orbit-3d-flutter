@@ -64,6 +64,32 @@ void main() {
     }
   });
 
+  test('la case désactive ou réactive les anciens réglages de sous-titres',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      AdvancedSettings.kVodSubtitleMode: VodSubtitleMode.disabled.name,
+      AdvancedSettings.kForceNoSubtitles: true,
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(advancedSettingsProvider.notifier);
+    await notifier.load();
+    expect(notifier.state.subtitlesDisabled, isTrue);
+
+    await notifier.setSubtitlesDisabled(false);
+    expect(notifier.state.subtitlesDisabled, isFalse);
+    expect(notifier.state.vodSubtitleMode, VodSubtitleMode.defaultSelection);
+    await notifier.load();
+    expect(notifier.state.subtitlesDisabled, isFalse);
+
+    await notifier.setVodSubtitleMode(VodSubtitleMode.forcedOnly);
+    await notifier.setSubtitlesDisabled(true);
+    await notifier.load();
+    expect(notifier.state.subtitlesDisabled, isTrue);
+    await notifier.setSubtitlesDisabled(false);
+    expect(notifier.state.vodSubtitleMode, VodSubtitleMode.forcedOnly);
+  });
+
   test('modifications persistées et relues', () async {
     SharedPreferences.setMockInitialValues({
       AdvancedSettings.kTlsImpersonation: true,

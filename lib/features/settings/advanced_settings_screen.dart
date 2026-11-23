@@ -236,8 +236,6 @@ class _AdvancedSettingsScreenState
           SettingsSectionTitle(l.sectionTmdb),
           const TmdbApiKeyTile(),
           const SizedBox(height: 24),
-          const ForceNoSubtitlesTile(),
-          const SizedBox(height: 24),
           SettingsSectionTitle(l.settingsProtectedPlayback),
           const WidevineConfigTile(),
           const SizedBox(height: 24),
@@ -545,25 +543,5 @@ class _TmdbApiKeyTileState extends ConsumerState<TmdbApiKeyTile> {
     await ref.read(tmdbApiKeyOverrideProvider.notifier).setOverride('');
     _controller.clear();
     if (mounted) setState(() {});
-  }
-}
-
-/// Tuile pour forcer l'absence de sous-titres au lancement (Films/Séries).
-class ForceNoSubtitlesTile extends ConsumerWidget {
-  const ForceNoSubtitlesTile({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final settings = ref.watch(advancedSettingsProvider);
-
-    return SettingsSwitchTile(
-      title: l.forceNoSubtitles,
-      subtitle: l.forceNoSubtitlesSubtitle,
-      value: settings.forceNoSubtitles,
-      onChanged: (v) =>
-          ref.read(advancedSettingsProvider.notifier).setForceNoSubtitles(v),
-      icon: Icons.subtitles_off_outlined,
-    );
   }
 }
