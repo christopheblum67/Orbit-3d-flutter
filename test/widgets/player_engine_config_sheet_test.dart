@@ -10,6 +10,41 @@ import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
+    testWidgets('merged player options fit in $language', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(360, 720);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          locale: Locale(language),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showPlayerEngineConfigSheet(context),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final l = lookupAppLocalizations(Locale(language));
+      expect(find.text(l.forceNoSubtitlesSubtitle), findsOneWidget);
+      expect(find.text(l.instantZapping), findsOneWidget);
+      await tester.ensureVisible(find.text(l.instantZapping));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('engine subtitle choice clears the old force-off preference',
       (tester) async {
     SharedPreferences.setMockInitialValues({
@@ -155,7 +190,7 @@ void main() {
     await tester.pumpAndSettle();
     final sheetHeight =
         tester.getSize(find.byType(PlayerEngineConfigSheet)).height;
-    expect(sheetHeight, closeTo(480 * 0.84, 0.1));
+    expect(sheetHeight, closeTo(480 * 0.90, 0.1));
     final engines = find.byType(DropdownButton<PlayerEngine>);
     final subtitles = find.byType(DropdownButton<VodSubtitleMode>);
     final decoder = find.byType(DropdownButton<VideoDecoderMode>);
@@ -199,6 +234,38 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
+    final checkboxNodes = [
+      for (final checkbox
+          in tester.widgetList<CheckboxListTile>(find.byType(CheckboxListTile)))
+        Focus.of(tester.element(find
+            .ancestor(
+              of: find.byWidget(checkbox),
+              matching: find.byType(Focus),
+            )
+            .first)),
+    ];
+    expect(checkboxNodes.first.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
+            .first
+            .value,
+        isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(checkboxNodes.last.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
+            .last
+            .value,
+        isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
     final cancel = tester.widget<OutlinedButton>(
       find.widgetWithText(OutlinedButton, 'Annuler'),
     );
@@ -219,6 +286,76 @@ void main() {
     expect(VideoDecoderPrefs.mode, VideoDecoderMode.hardware);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('video_decoder_mode'), 'hardware');
+  });
+
+  testWidgets('player checkboxes are drafted, coordinated and saved',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      AdvancedSettings.kVodSubtitleMode: VodSubtitleMode.forcedOnly.name,
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await container.read(advancedSettingsProvider.notifier).load();
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showPlayerEngineConfigSheet(context),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    Future<void> open() async {
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+    }
+
+    final checkboxes = find.byType(CheckboxListTile);
+    final subtitles = find.byType(DropdownButton<VodSubtitleMode>);
+    await open();
+    await tester.ensureVisible(checkboxes.first);
+    await tester.tap(checkboxes.first);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DropdownButton<VodSubtitleMode>>(subtitles).value,
+        VodSubtitleMode.disabled);
+    expect(container.read(advancedSettingsProvider).subtitlesDisabled, isFalse);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(container.read(advancedSettingsProvider).subtitlesDisabled, isFalse);
+
+    await open();
+    await tester.ensureVisible(checkboxes.first);
+    await tester.tap(checkboxes.first);
+    await tester.tap(checkboxes.last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+    expect(container.read(advancedSettingsProvider).subtitlesDisabled, isTrue);
+    expect(container.read(advancedSettingsProvider).zeroLagPrefetch, isFalse);
+    expect(container.read(advancedSettingsProvider).vodSubtitleMode,
+        VodSubtitleMode.forcedOnly);
+
+    await open();
+    await tester.ensureVisible(checkboxes.first);
+    await tester.tap(checkboxes.first);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DropdownButton<VodSubtitleMode>>(subtitles).value,
+        VodSubtitleMode.forcedOnly);
+    await tester.tap(find.byIcon(Icons.save_outlined));
+    await tester.pumpAndSettle();
+    expect(container.read(advancedSettingsProvider).subtitlesDisabled, isFalse);
   });
 
   testWidgets('sauvegarde le moteur VOD et le recharge', (tester) async {

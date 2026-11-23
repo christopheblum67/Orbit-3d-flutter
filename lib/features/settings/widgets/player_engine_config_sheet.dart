@@ -44,12 +44,18 @@ class _PlayerEngineConfigSheetState
   final _saveFocus = FocusNode();
   final _vodSubtitleFocus = FocusNode();
   final _decoderFocus = FocusNode();
+  final _subtitlesOffFocus = FocusNode();
+  final _zappingFocus = FocusNode();
   final _scrollController = ScrollController();
   final Map<PlaybackContentType, FocusNode> _primaryFocusNodes = {};
   final Map<PlaybackContentType, FocusNode> _fallbackFocusNodes = {};
 
   late VodSubtitleMode _vodSubtitleModeDraft;
   bool _vodSubtitleModeChanged = false;
+  late bool _subtitlesDisabledDraft;
+  bool _subtitlesDisabledChanged = false;
+  late bool _zeroLagPrefetchDraft;
+  bool _zeroLagPrefetchChanged = false;
   VideoDecoderMode _decoderModeDraft = VideoDecoderMode.auto;
   bool _decoderLoaded = false;
 
@@ -61,6 +67,8 @@ class _PlayerEngineConfigSheetState
     _saveFocus.dispose();
     _vodSubtitleFocus.dispose();
     _decoderFocus.dispose();
+    _subtitlesOffFocus.dispose();
+    _zappingFocus.dispose();
     _scrollController.dispose();
     for (final node in _primaryFocusNodes.values) {
       node.dispose();
@@ -78,8 +86,9 @@ class _PlayerEngineConfigSheetState
     _draft = {
       for (final t in PlaybackContentType.values) t: s.configFor(t),
     };
-    _vodSubtitleModeDraft =
-        s.subtitlesDisabled ? VodSubtitleMode.disabled : s.vodSubtitleMode;
+    _vodSubtitleModeDraft = s.vodSubtitleMode;
+    _subtitlesDisabledDraft = s.subtitlesDisabled;
+    _zeroLagPrefetchDraft = s.zeroLagPrefetch;
     VideoDecoderPrefs.ensureLoaded().then((_) {
       if (!mounted) return;
       setState(() {
@@ -112,6 +121,19 @@ class _PlayerEngineConfigSheetState
     setState(() {
       _vodSubtitleModeDraft = mode;
       _vodSubtitleModeChanged = true;
+      _subtitlesDisabledDraft = mode == VodSubtitleMode.disabled;
+      _subtitlesDisabledChanged = false;
+    });
+  }
+
+  void _setSubtitlesDisabled(bool value) {
+    setState(() {
+      _subtitlesDisabledDraft = value;
+      _subtitlesDisabledChanged = true;
+      if (!value && _vodSubtitleModeDraft == VodSubtitleMode.disabled) {
+        _vodSubtitleModeDraft = VodSubtitleMode.defaultSelection;
+        _vodSubtitleModeChanged = true;
+      }
     });
   }
 
@@ -144,13 +166,74 @@ class _PlayerEngineConfigSheetState
     }
     if (_vodSubtitleModeChanged) {
       await n.setVodSubtitleMode(_vodSubtitleModeDraft);
+    }
+    if (_subtitlesDisabledChanged) {
+      await n.setSubtitlesDisabled(_subtitlesDisabledDraft);
+    } else if (_vodSubtitleModeChanged) {
       await n.setForceNoSubtitles(false);
+    }
+    if (_zeroLagPrefetchChanged) {
+      await n.setZeroLagPrefetch(_zeroLagPrefetchDraft);
     }
     if (_decoderModeDraft != VideoDecoderPrefs.mode) {
       await VideoDecoderPrefs.setMode(_decoderModeDraft);
       PlayerProfileService.invalidate();
     }
     if (mounted) Navigator.of(context).pop();
+  }
+
+  Widget _buildPlayerCheckbox({
+    required FocusNode focusNode,
+    required FocusNode previous,
+    required FocusNode next,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Focus(
+      focusNode: focusNode,
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+          return KeyEventResult.ignored;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+            event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+          _requestFocus(previous);
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+            event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          _requestFocus(next);
+          return KeyEventResult.handled;
+        }
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+          onChanged(!value);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      onFocusChange: (focused) {
+        if (focused && focusNode.context != null) {
+          Scrollable.ensureVisible(focusNode.context!);
+        }
+      },
+      child: ExcludeFocus(
+        child: CheckboxListTile(
+          value: value,
+          onChanged: (value) {
+            if (value != null) onChanged(value);
+          },
+          title: Text(title, style: const TextStyle(fontSize: 12)),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          dense: true,
+          visualDensity: VisualDensity.compact,
+        ),
+      ),
+    );
   }
 
   void _requestFocus(FocusNode focus) {
@@ -305,7 +388,7 @@ class _PlayerEngineConfigSheetState
         ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.84,
+            maxHeight: MediaQuery.of(context).size.height * 0.90,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -431,7 +514,9 @@ class _PlayerEngineConfigSheetState
                           dropdownItems: dropdownItems,
                           buildTvDropdown: _buildTvDropdownButton,
                           vodSubtitleMode: type == PlaybackContentType.vod
-                              ? _vodSubtitleModeDraft
+                              ? (_subtitlesDisabledDraft
+                                  ? VodSubtitleMode.disabled
+                                  : _vodSubtitleModeDraft)
                               : null,
                           onVodSubtitleMode: type == PlaybackContentType.vod
                               ? _setVodSubtitleMode
@@ -486,7 +571,7 @@ class _PlayerEngineConfigSheetState
                               child: _buildTvSubtitleDropdownButton<
                                   VideoDecoderMode>(
                                 focusNode: _decoderFocus,
-                                nextFocusNode: _cancelFocus,
+                                nextFocusNode: _subtitlesOffFocus,
                                 prevFocusNode: _fallbackFocusNodes[
                                     PlaybackContentType.replay]!,
                                 value: _decoderModeDraft,
@@ -528,6 +613,32 @@ class _PlayerEngineConfigSheetState
                           ),
                         ),
                       const SizedBox(height: 8),
+                      Text(
+                        l.tabPlayer,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      _buildPlayerCheckbox(
+                        focusNode: _subtitlesOffFocus,
+                        previous: _decoderFocus,
+                        next: _zappingFocus,
+                        title: l.forceNoSubtitlesSubtitle,
+                        value: _subtitlesDisabledDraft,
+                        onChanged: _setSubtitlesDisabled,
+                      ),
+                      _buildPlayerCheckbox(
+                        focusNode: _zappingFocus,
+                        previous: _subtitlesOffFocus,
+                        next: _cancelFocus,
+                        title: l.instantZapping,
+                        value: _zeroLagPrefetchDraft,
+                        onChanged: (value) => setState(() {
+                          _zeroLagPrefetchDraft = value;
+                          _zeroLagPrefetchChanged = true;
+                        }),
+                      ),
                     ],
                   ),
                 ),
@@ -553,7 +664,7 @@ class _PlayerEngineConfigSheetState
                           if (event is KeyDownEvent &&
                               (event.logicalKey ==
                                   LogicalKeyboardKey.arrowUp)) {
-                            _requestFocus(_decoderFocus);
+                            _requestFocus(_zappingFocus);
                             return KeyEventResult.handled;
                           }
                           if (event is KeyDownEvent &&
@@ -596,7 +707,7 @@ class _PlayerEngineConfigSheetState
                           if (event is KeyDownEvent &&
                               (event.logicalKey ==
                                   LogicalKeyboardKey.arrowUp)) {
-                            _requestFocus(_decoderFocus);
+                            _requestFocus(_zappingFocus);
                             return KeyEventResult.handled;
                           }
                           return KeyEventResult.ignored;

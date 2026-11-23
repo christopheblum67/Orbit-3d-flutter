@@ -16,7 +16,9 @@ import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 /// dépend que de cette ligne. Changer d'utilisateur ne change rien, changer
 /// d'abonnement restaure ses propres préférences.
 class CategoryFilterScreen extends ConsumerStatefulWidget {
-  const CategoryFilterScreen({super.key});
+  const CategoryFilterScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   ConsumerState<CategoryFilterScreen> createState() =>
@@ -91,21 +93,23 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
         : (seriesSource.value ?? const <MediaCategory>[]);
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () =>
-              context.canPop() ? context.pop() : context.go('/home'),
-        ),
-        title: Text(l.categoryTitle),
-        actions: [
-          if (filter.hiddenCount > 0)
-            TextButton(
-              onPressed: notifier.resetToAllVisible,
-              child: Text(l.categoryShowAll),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () =>
+                    context.canPop() ? context.pop() : context.go('/home'),
+              ),
+              title: Text(l.categoryTitle),
+              actions: [
+                if (filter.hiddenCount > 0)
+                  TextButton(
+                    onPressed: notifier.resetToAllVisible,
+                    child: Text(l.categoryShowAll),
+                  ),
+              ],
             ),
-        ],
-      ),
       body: sub == null
           ? Center(child: Text(l.accountNoSubscription))
           : Column(
@@ -115,16 +119,25 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
                   scannedAt: filter.scannedAt,
                   scanning: _scanning,
                   onRescan: _rescan,
+                  compact: widget.embedded,
+                  onShowAll: filter.hiddenCount > 0
+                      ? notifier.resetToAllVisible
+                      : null,
                 ),
-                TabBar(
-                  controller: _tabController,
-                  tabs: [
-                    _focusTab(
-                        0, l.liveTv, filter.hiddenLiveCategoryIds.length),
-                    _focusTab(1, l.films, filter.hiddenVodCategoryIds.length),
-                    _focusTab(
-                        2, l.series, filter.hiddenSeriesCategoryIds.length),
-                  ],
+                SizedBox(
+                  height: widget.embedded ? 38 : null,
+                  child: TabBar(
+                    controller: _tabController,
+                    labelStyle:
+                        widget.embedded ? const TextStyle(fontSize: 12) : null,
+                    tabs: [
+                      _focusTab(
+                          0, l.liveTv, filter.hiddenLiveCategoryIds.length),
+                      _focusTab(1, l.films, filter.hiddenVodCategoryIds.length),
+                      _focusTab(
+                          2, l.series, filter.hiddenSeriesCategoryIds.length),
+                    ],
+                  ),
                 ),
                 Expanded(
                   child: TabBarView(
@@ -138,6 +151,7 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
                           isHidden: filter.isLiveHidden,
                           onToggle: notifier.setLiveCategoryVisible,
                           channels: true,
+                          compact: widget.embedded,
                         ),
                       ),
                       _tabList(
@@ -147,6 +161,7 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
                           categories: vodCategories,
                           isHidden: filter.isVodHidden,
                           onToggle: notifier.setVodCategoryVisible,
+                          compact: widget.embedded,
                         ),
                       ),
                       _tabList(
@@ -156,6 +171,7 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
                           categories: seriesCategories,
                           isHidden: filter.isSeriesHidden,
                           onToggle: notifier.setSeriesCategoryVisible,
+                          compact: widget.embedded,
                         ),
                       ),
                     ],
@@ -231,12 +247,16 @@ class _SubscriptionHeader extends StatelessWidget {
     required this.scannedAt,
     required this.scanning,
     required this.onRescan,
+    this.compact = false,
+    this.onShowAll,
   });
 
   final String subscriptionName;
   final DateTime? scannedAt;
   final bool scanning;
   final Future<void> Function() onRescan;
+  final bool compact;
+  final VoidCallback? onShowAll;
 
   String _scannedLabel(AppLocalizations l) {
     final at = scannedAt;
@@ -251,6 +271,44 @@ class _SubscriptionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context);
+    if (compact) {
+      return Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(subscriptionName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium),
+                Text(l.categorySubscriptionSettings(_scannedLabel(l)),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+          if (onShowAll != null)
+            IconButton(
+              tooltip: l.categoryShowAll,
+              icon: const Icon(Icons.visibility_outlined, size: 18),
+              onPressed: onShowAll,
+            ),
+          IconButton(
+            tooltip: scanning ? l.categoryScanning : l.categoryRescan,
+            onPressed: scanning ? null : onRescan,
+            icon: scanning
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 18),
+          ),
+        ],
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Column(
@@ -306,9 +364,11 @@ class _CategorySection extends StatelessWidget {
     required this.isHidden,
     required this.onToggle,
     this.channels = false,
+    this.compact = false,
   });
 
   final bool channels;
+  final bool compact;
   final String title;
   final String emptyMessage;
   final List<MediaCategory> categories;
@@ -346,24 +406,41 @@ class _CategorySection extends StatelessWidget {
         ...sorted.map(
           (category) {
             final hidden = isHidden(category.id);
+            final title = Text(
+              category.name,
+              style: TextStyle(
+                fontSize: compact ? 12 : null,
+                color: hidden ? theme.colorScheme.onSurfaceVariant : null,
+              ),
+            );
+            final subtitle = category.count > 0
+                ? Text(channels
+                    ? l.categoryChannelsCount(category.count)
+                    : l.categoryTitlesCount(category.count))
+                : null;
             return TvFocus(
               onActivate: () => onToggle(category.id, hidden),
-              child: SwitchListTile.adaptive(
-                dense: true,
-                value: !hidden,
-                onChanged: (visible) => onToggle(category.id, visible),
-                title: Text(
-                  category.name,
-                  style: TextStyle(
-                    color: hidden ? theme.colorScheme.onSurfaceVariant : null,
-                  ),
-                ),
-                subtitle: category.count > 0
-                    ? Text(channels
-                        ? l.categoryChannelsCount(category.count)
-                        : l.categoryTitlesCount(category.count))
-                    : null,
-              ),
+              child: compact
+                  ? ExcludeFocus(
+                      child: CheckboxListTile(
+                        dense: true,
+                        visualDensity: VisualDensity.compact,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        value: !hidden,
+                        onChanged: (visible) {
+                          if (visible != null) onToggle(category.id, visible);
+                        },
+                        title: title,
+                        subtitle: subtitle,
+                      ),
+                    )
+                  : SwitchListTile.adaptive(
+                      dense: true,
+                      value: !hidden,
+                      onChanged: (visible) => onToggle(category.id, visible),
+                      title: title,
+                      subtitle: subtitle,
+                    ),
             );
           },
         ),

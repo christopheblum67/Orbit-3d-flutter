@@ -21,6 +21,7 @@ import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
+import 'package:orbit_3d_flutter/features/settings/category_filter_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart'
     show showPlayerEngineConfigSheet;
@@ -47,6 +48,17 @@ class UnifiedSettingsScreen extends ConsumerStatefulWidget {
 class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen> {
   @override
   Widget build(BuildContext context) {
+    final groups = [
+      ..._AccountSection.groups(context, ref),
+      ..._AdvancedSection.groups(context, ref),
+    ];
+    final standalone = [
+      _AccountSection.cloudBackupTile(context, ref),
+      ..._NetworkSecuritySection.tiles(context),
+      _PlayerAudioSection.engineTile(context, ref),
+      _PlayerAudioSection.combinedTile(context),
+      ..._AdvancedSection.standalone(context, ref),
+    ];
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
@@ -59,15 +71,59 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen> {
         title: Text(AppLocalizations.of(context).settingsTitle),
       ),
       body: TvSafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: const [
-              _AccountSection(),
-              _NetworkSecuritySection(),
-              _PlayerAudioSection(),
-              _AdvancedSection(),
-            ],
+        child: FocusTraversalGroup(
+          policy: ReadingOrderTraversalPolicy(
+            requestFocusCallback: (
+              node, {
+              alignment,
+              alignmentPolicy,
+              duration,
+              curve,
+            }) {
+              node.requestFocus();
+              final focusContext = node.context;
+              if (focusContext != null) {
+                Scrollable.ensureVisible(
+                  focusContext,
+                  alignment: 0,
+                  duration: const Duration(milliseconds: 120),
+                );
+              }
+            },
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(12),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const gap = 6.0;
+                final columns =
+                    ((constraints.maxWidth + gap) / 84).floor().clamp(1, 8);
+                final cellWidth =
+                    (constraints.maxWidth - gap * (columns - 1)) / columns;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: [
+                        for (final group in groups)
+                          SizedBox(
+                            width: cellWidth *
+                                    group.children.length.clamp(1, columns) +
+                                gap *
+                                    (group.children.length.clamp(1, columns) -
+                                        1),
+                            child: group,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: gap),
+                    _SettingsGrid(children: standalone),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -116,24 +172,22 @@ class _SettingsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       const gap = 6.0;
-      final columns = ((constraints.maxWidth + gap) / 78).floor().clamp(1, 4);
+      final columns = ((constraints.maxWidth + gap) / 78).floor().clamp(1, 8);
       final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
       return Column(
         children: [
           for (var start = 0; start < children.length; start += columns) ...[
             if (start > 0) const SizedBox(height: gap),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = start;
-                      i < children.length && i < start + columns;
-                      i++) ...[
-                    if (i > start) const SizedBox(width: gap),
-                    SizedBox(width: width, child: children[i]),
-                  ],
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = start;
+                    i < children.length && i < start + columns;
+                    i++) ...[
+                  if (i > start) const SizedBox(width: gap),
+                  SizedBox(width: width, child: children[i]),
                 ],
-              ),
+              ],
             ),
           ],
         ],
@@ -250,125 +304,88 @@ class _NavTile extends StatelessWidget {
 }
 
 /// ─── COMPTE ──────────────────────────────────────────────────────
-class _AccountSection extends ConsumerWidget {
-  const _AccountSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
+class _AccountSection {
+  static List<_SettingsGroup> groups(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final sub = ref.watch(activeSubscriptionProvider);
-    final syncState = ref.watch(encryptedActivitySyncProvider);
-    final scheme = Theme.of(context).colorScheme;
+    return [
+      _SettingsGroup(title: l.sectionAccountProfile, children: [
+        _NavTile(
+          // Premier élément focusable de l'écran : focus initial en mode TV.
+          autofocus: true,
+          icon: Icons.manage_accounts_rounded,
+          iconAsset: 'assets/icons/settings-profile.png',
+          title: l.accountProfiles,
+          subtitle: l.accountProfilesSubtitle,
+          onTap: () => context.go('/profiles'),
+        ),
+        _NavTile(
+          icon: Icons.subscriptions_rounded,
+          iconAsset: 'assets/icons/settings-subscription.png',
+          title: l.accountSubscriptions,
+          subtitle: sub == null
+              ? l.accountNoSubscription
+              : '${sub.name} · ${sub.validityLabel}',
+          onTap: () => context.go('/subscriptions'),
+        ),
+        _NavTile(
+          icon: Icons.settings_outlined,
+          title: l.accountPreferences,
+          subtitle: l.accountPreferencesSubtitle,
+          onTap: () => context.go('/profile/preferences'),
+        ),
+        _NavTile(
+          icon: Icons.memory_rounded,
+          title: l.accountDeviceProfile,
+          subtitle: l.accountDeviceProfileSubtitle(
+            ref.watch(deviceProfileProvider).label,
+          ),
+          onTap: () => context.go('/onboarding'),
+        ),
+      ]),
+    ];
+  }
 
-    return FocusTraversalGroup(
-      policy: ReadingOrderTraversalPolicy(),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _SettingsGroup(title: l.sectionAccountProfile, children: [
-            _NavTile(
-              // Premier élément focusable de l'écran : focus initial en mode TV.
-              autofocus: true,
-              icon: Icons.manage_accounts_rounded,
-              iconAsset: 'assets/icons/settings-profile.png',
-              title: l.accountProfiles,
-              subtitle: l.accountProfilesSubtitle,
-              onTap: () => context.go('/profiles'),
-            ),
-            _NavTile(
-              icon: Icons.subscriptions_rounded,
-              iconAsset: 'assets/icons/settings-subscription.png',
-              title: l.accountSubscriptions,
-              subtitle: sub == null
-                  ? l.accountNoSubscription
-                  : '${sub.name} · ${sub.validityLabel}',
-              onTap: () => context.go('/subscriptions'),
-            ),
-            _NavTile(
-              icon: Icons.settings_outlined,
-              title: l.accountPreferences,
-              subtitle: l.accountPreferencesSubtitle,
-              onTap: () => context.go('/profile/preferences'),
-            ),
-            _NavTile(
-              icon: Icons.memory_rounded,
-              title: l.accountDeviceProfile,
-              subtitle: l.accountDeviceProfileSubtitle(
-                ref.watch(deviceProfileProvider).label,
-              ),
-              onTap: () => context.go('/onboarding'),
-            ),
-          ]),
-          const SizedBox(height: 8),
-          _SettingsGroup(title: l.sectionCloudSync, children: [
-            _NavTile(
-              icon: Icons.account_circle_outlined,
-              title: l.settingsCloudAccount,
-              subtitle: l.settingsCloudSignIn,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const CloudAccountScreen(),
-                ),
-              ),
-            ),
-            if (syncState.unlocked &&
-                !syncState.busy &&
-                syncState.conflictScope == null)
-              _NavTile(
-                icon: Icons.sync_rounded,
-                title: l.cloudSyncNow,
-                subtitle: l.cloudSyncNowSubtitle,
-                onTap: () =>
-                    ref.read(encryptedActivitySyncProvider.notifier).syncAll(),
-              ),
-          ]),
-          if (syncState.error != null ||
-              syncState.realtimeError != null ||
-              syncState.conflictScope != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                syncState.conflictScope != null
-                    ? l.cloudConflictHelp
-                    : l.cloudOperationFailed,
-                style: TextStyle(color: scheme.error),
-              ),
-            ),
-          if (syncState.unlocked)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                l.cloudSyncLastSync(
-                  _formatTime(syncState.lastSyncAt, l.never),
-                ),
-              ),
-            ),
-          if (syncState.unlocked && syncState.busy)
-            ListTile(title: Text(l.cloudStartingSync)),
-          const SizedBox(height: 8),
-          _SettingsGroup(title: l.sectionBackup, children: [
-            _NavTile(
-              icon: Icons.upload_outlined,
-              title: l.backupExport,
-              subtitle: l.backupExportSubtitle,
-              // `unawaited` explicite : ces deux écritures sont déclenchées par un appui et
-              // ne doivent pas bloquer le tap. Les helpers retournent désormais
-              // `Future<void>` : en `static void ... async` l'appelant ne pouvait
-              // ni attendre, ni voir les exceptions, qui remontaient en zone non
-              // rattrapable.
-              onTap: () => unawaited(_exportSettings(context, ref)),
-            ),
-            _NavTile(
-              icon: Icons.download_outlined,
-              title: l.backupImport,
-              subtitle: l.backupImportSubtitle,
-              onTap: () => unawaited(_importSettings(context, ref)),
-            ),
-          ]),
-        ]),
+  static Widget cloudBackupTile(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    return _NavTile(
+      icon: Icons.cloud_outlined,
+      title: l.sectionBackup,
+      subtitle: l.settingsCloudAccount,
+      onTap: () => _showSettingsDialog(
+        context,
+        title: '${l.settingsCloudAccount} · ${l.sectionBackup}',
+        compact: true,
+        child: _CloudBackupOptions(screenContext: context, screenRef: ref),
       ),
     );
+  }
+
+  static List<Widget> cloudStatus(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final syncState = ref.watch(encryptedActivitySyncProvider);
+    return [
+      if (syncState.error != null ||
+          syncState.realtimeError != null ||
+          syncState.conflictScope != null)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            syncState.conflictScope != null
+                ? l.cloudConflictHelp
+                : l.cloudOperationFailed,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ),
+      if (syncState.unlocked)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+              l.cloudSyncLastSync(_formatTime(syncState.lastSyncAt, l.never))),
+        ),
+      if (syncState.unlocked && syncState.busy)
+        ListTile(title: Text(l.cloudStartingSync)),
+    ];
   }
 
   static Future<void> _exportSettings(
@@ -417,13 +434,14 @@ class _AccountSection extends ConsumerWidget {
     // L'import réécrit les réglages : l'écran peut avoir été quitté entre-temps.
     if (!context.mounted) return;
     if (result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.snackImportSuccess)),
-      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l.snackImportSuccess)));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.snackImportError(result.message))),
-      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+            SnackBar(content: Text(l.snackImportError(result.message))));
     }
   }
 
@@ -437,51 +455,94 @@ class _AccountSection extends ConsumerWidget {
   }
 }
 
-/// ─── RÉSEAU & SÉCURITÉ ───────────────────────────────────────────
-class _NetworkSecuritySection extends ConsumerWidget {
-  const _NetworkSecuritySection();
+class _CloudBackupOptions extends ConsumerWidget {
+  const _CloudBackupOptions({
+    required this.screenContext,
+    required this.screenRef,
+  });
+
+  final BuildContext screenContext;
+  final WidgetRef screenRef;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    return FocusTraversalGroup(
-      policy: ReadingOrderTraversalPolicy(),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _SettingsGroup(title: l.tabNetwork, children: [
-            _NavTile(
-              icon: Icons.public,
-              iconAsset: 'assets/icons/settings-network.png',
-              title: l.dnsProvider,
-              subtitle: l.dnsProviderSubtitle,
-              onTap: () => _showSettingsDialog(
-                context,
-                title: l.tabNetwork,
-                child: const _DnsProviderTile(),
-              ),
+    final syncState = ref.watch(encryptedActivitySyncProvider);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SettingsGrid(children: [
+          _NavTile(
+            autofocus: true,
+            icon: Icons.account_circle_outlined,
+            title: l.settingsCloudAccount,
+            subtitle: l.settingsCloudSignIn,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                  builder: (_) => const CloudAccountScreen()),
             ),
+          ),
+          _NavTile(
+            icon: Icons.upload_outlined,
+            title: l.backupExport,
+            subtitle: l.backupExportSubtitle,
+            onTap: () {
+              Navigator.of(context).pop();
+              unawaited(
+                  _AccountSection._exportSettings(screenContext, screenRef));
+            },
+          ),
+          _NavTile(
+            icon: Icons.download_outlined,
+            title: l.backupImport,
+            subtitle: l.backupImportSubtitle,
+            onTap: () {
+              Navigator.of(context).pop();
+              unawaited(
+                  _AccountSection._importSettings(screenContext, screenRef));
+            },
+          ),
+          if (syncState.unlocked &&
+              !syncState.busy &&
+              syncState.conflictScope == null)
             _NavTile(
-              icon: Icons.balance_outlined,
-              title: l.legalNotice,
-              subtitle: l.legalNoticeSubtitle,
-              onTap: () => context.go('/legal?flow=settings'),
+              icon: Icons.sync_rounded,
+              title: l.cloudSyncNow,
+              subtitle: l.cloudSyncNowSubtitle,
+              onTap: () =>
+                  ref.read(encryptedActivitySyncProvider.notifier).syncAll(),
             ),
-            _NavTile(
-              icon: Icons.subtitles_outlined,
-              title: l.tabPlayer,
-              subtitle: '${l.settingsSubtitles} · ${l.sectionZapping}',
-              onTap: () => _showSettingsDialog(
-                context,
-                title: l.tabPlayer,
-                child: const _PlaybackOptions(),
-              ),
-            ),
-          ]),
         ]),
-      ),
+        ..._AccountSection.cloudStatus(context, ref),
+      ],
     );
+  }
+}
+
+/// ─── RÉSEAU & SÉCURITÉ ───────────────────────────────────────────
+class _NetworkSecuritySection {
+  static List<Widget> tiles(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return [
+      _NavTile(
+        icon: Icons.public,
+        iconAsset: 'assets/icons/settings-network.png',
+        title: l.dnsProvider,
+        subtitle: l.dnsProviderSubtitle,
+        onTap: () => _showSettingsDialog(
+          context,
+          title: l.tabNetwork,
+          child: const _DnsProviderTile(),
+        ),
+      ),
+      _NavTile(
+        icon: Icons.balance_outlined,
+        title: l.legalNotice,
+        subtitle: l.legalNoticeSubtitle,
+        onTap: () => context.go('/legal?flow=settings'),
+      ),
+    ];
   }
 }
 
@@ -533,55 +594,186 @@ class _DnsProviderTile extends ConsumerWidget {
 }
 
 /// ─── LECTURE & AUDIO ─────────────────────────────────────────────
-class _PlayerAudioSection extends ConsumerWidget {
-  const _PlayerAudioSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
+class _PlayerAudioSection {
+  static Widget engineTile(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final s = ref.watch(advancedSettingsProvider);
-    return FocusTraversalGroup(
-      policy: ReadingOrderTraversalPolicy(),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _SettingsGroup(title: l.tabPlayer, children: [
-            _NavTile(
-              icon: Icons.play_circle_outline,
-              iconAsset: 'assets/icons/settings-player.png',
-              title: l.enginesTile,
-              subtitle: l.enginesSubtitle(
-                s.playerLive.primary.label,
-                s.playerVod.primary.label,
-              ),
-              onTap: () => showPlayerEngineConfigSheet(context),
+    return _NavTile(
+      icon: Icons.play_circle_outline,
+      iconAsset: 'assets/icons/settings-player.png',
+      title: l.enginesTile,
+      subtitle: l.enginesSubtitle(
+        s.playerLive.primary.label,
+        s.playerVod.primary.label,
+      ),
+      onTap: () => showPlayerEngineConfigSheet(context),
+    );
+  }
+
+  static Widget combinedTile(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return _NavTile(
+      icon: Icons.tune_rounded,
+      title: l.sectionAccessibility,
+      subtitle:
+          '${l.settingsCategoryFilters} · ${l.audioAndNightFocus} · ${l.sectionMemory}',
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (_) => const _CombinedSettingsDialog(),
+      ),
+    );
+  }
+}
+
+class _CombinedSettingsDialog extends StatefulWidget {
+  const _CombinedSettingsDialog();
+
+  @override
+  State<_CombinedSettingsDialog> createState() =>
+      _CombinedSettingsDialogState();
+}
+
+class _CombinedSettingsDialogState extends State<_CombinedSettingsDialog>
+    with SingleTickerProviderStateMixin {
+  late final TabController _controller;
+  final _tabs = List.generate(4, (index) => FocusNode());
+  final _visitedTabs = <int>{0};
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TabController(length: _tabs.length, vsync: this);
+    _controller.addListener(_onTabChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _tabs.first.requestFocus();
+    });
+  }
+
+  void _onTabChanged() {
+    if (mounted) {
+      setState(() => _visitedTabs.add(_controller.index));
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onTabChanged);
+    _controller.dispose();
+    for (final node in _tabs) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final labels = [
+      l.sectionAccessibility,
+      l.settingsCategoryFilters,
+      l.audioAndNightFocus,
+      l.sectionMemory,
+    ];
+    const panels = [
+      SingleChildScrollView(child: _AccessibilityOptions()),
+      CategoryFilterScreen(embedded: true),
+      SingleChildScrollView(child: _AudioOptions()),
+      SingleChildScrollView(child: MemorySettingsPanel()),
+    ];
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: SizedBox(
+        width: 640,
+        height: MediaQuery.sizeOf(context).height * 0.88,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+              child: Row(children: [
+                Expanded(
+                  child: Text(l.settingsTitle,
+                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                IconButton(
+                  tooltip: l.close,
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ]),
             ),
-            _NavTile(
-              icon: Icons.nightlight_outlined,
-              iconAsset: 'assets/icons/settings-night.png',
-              title: l.audioAndNightFocus,
-              subtitle: l.audioAndNightFocusSubtitle,
-              onTap: () => _showSettingsDialog(
-                context,
-                title: l.audioAndNightFocus,
-                child: const _AudioOptions(),
-                compact: true,
+            TabBar(
+              controller: _controller,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelStyle: const TextStyle(fontSize: 12),
+              tabs: [
+                for (var index = 0; index < labels.length; index++)
+                  Focus(
+                    focusNode: _tabs[index],
+                    onFocusChange: (focused) {
+                      if (focused && _controller.index != index) {
+                        _controller.animateTo(index);
+                      }
+                    },
+                    onKeyEvent: (node, event) {
+                      if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+                        return KeyEventResult.ignored;
+                      }
+                      final direction =
+                          event.logicalKey == LogicalKeyboardKey.arrowRight
+                              ? 1
+                              : event.logicalKey == LogicalKeyboardKey.arrowLeft
+                                  ? -1
+                                  : 0;
+                      final rtl =
+                          Directionality.of(context) == TextDirection.rtl;
+                      final next = index + (rtl ? -direction : direction);
+                      if (direction == 0 || next < 0 || next >= _tabs.length) {
+                        return KeyEventResult.ignored;
+                      }
+                      _tabs[next].requestFocus();
+                      return KeyEventResult.handled;
+                    },
+                    child: AnimatedBuilder(
+                      animation: _tabs[index],
+                      builder: (context, child) => DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: _tabs[index].hasFocus
+                              ? Border.all(
+                                  color: Theme.of(context).colorScheme.primary)
+                              : null,
+                        ),
+                        child: child,
+                      ),
+                      child: Tab(text: labels[index]),
+                    ),
+                  ),
+              ],
+            ),
+            Expanded(
+              child: FocusTraversalGroup(
+                policy: ReadingOrderTraversalPolicy(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: IndexedStack(
+                    index: _controller.index,
+                    children: [
+                      for (var index = 0; index < panels.length; index++)
+                        ExcludeFocus(
+                          excluding: index != _controller.index,
+                          child: _visitedTabs.contains(index)
+                              ? panels[index]
+                              : const SizedBox.shrink(),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            _NavTile(
-              icon: Icons.memory_rounded,
-              iconAsset: 'assets/icons/settings-cache.png',
-              title: l.sectionMemory,
-              subtitle: l.memoryPanelTitle,
-              onTap: () => _showSettingsDialog(
-                context,
-                title: l.sectionMemory,
-                child: const MemorySettingsPanel(),
-              ),
-            ),
-          ]),
-        ]),
+          ],
+        ),
       ),
     );
   }
@@ -623,20 +815,17 @@ class _SettingsToggle extends StatelessWidget {
     required this.title,
     required this.value,
     required this.onChanged,
-    this.autofocus = false,
     this.checkbox = false,
   });
 
   final String title;
   final bool value;
   final ValueChanged<bool> onChanged;
-  final bool autofocus;
   final bool checkbox;
 
   @override
   Widget build(BuildContext context) {
     return TvFocus(
-      autofocus: autofocus,
       onActivate: () => onChanged(!value),
       onFocusChange: (focused) {
         if (focused) {
@@ -651,7 +840,10 @@ class _SettingsToggle extends StatelessWidget {
         child: checkbox
             ? CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(title),
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text(title, style: const TextStyle(fontSize: 12)),
                 value: value,
                 onChanged: (v) {
                   if (v != null) onChanged(v);
@@ -664,34 +856,6 @@ class _SettingsToggle extends StatelessWidget {
                 onChanged: onChanged,
               ),
       ),
-    );
-  }
-}
-
-class _PlaybackOptions extends ConsumerWidget {
-  const _PlaybackOptions();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _SettingsToggle(
-          title: l.forceNoSubtitlesSubtitle,
-          value: s.subtitlesDisabled,
-          onChanged: n.setSubtitlesDisabled,
-          checkbox: true,
-          autofocus: true,
-        ),
-        _SettingsToggle(
-          title: l.instantZapping,
-          value: s.zeroLagPrefetch,
-          onChanged: n.setZeroLagPrefetch,
-        ),
-      ],
     );
   }
 }
@@ -712,22 +876,25 @@ class _AudioOptions extends ConsumerWidget {
           title: l.nightFocusEnable,
           value: s.nightFocusEnabled,
           onChanged: n.setNightFocus,
-          autofocus: true,
+          checkbox: true,
         ),
         _SettingsToggle(
           title: l.dialogueBoost,
           value: s.nightFocusDialogueBoost,
           onChanged: n.setNightFocusDialogueBoost,
+          checkbox: true,
         ),
         _SettingsToggle(
           title: l.bassKiller,
           value: s.nightFocusBassKiller,
           onChanged: n.setNightFocusBassKiller,
+          checkbox: true,
         ),
         _SettingsToggle(
           title: l.audioShift,
           value: s.nightFocusAudioShiftMs != 0,
           onChanged: (value) => n.setNightFocusAudioShiftMs(value ? 50 : 0),
+          checkbox: true,
         ),
         if (s.nightFocusAudioShiftMs != 0)
           TextButton.icon(
@@ -745,6 +912,7 @@ class _AudioOptions extends ConsumerWidget {
           title: l.volumeNormalization,
           value: s.nightFocusVolumeNormalization,
           onChanged: n.setNightFocusVolumeNormalization,
+          checkbox: true,
         ),
         Builder(
           builder: (buttonContext) => TvFocus(
@@ -903,88 +1071,62 @@ Future<void> _showAvSyncDialog(BuildContext context, WidgetRef ref) async {
 }
 
 /// ─── AVANCÉ ──────────────────────────────────────────────────────
-class _AdvancedSection extends ConsumerWidget {
-  const _AdvancedSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
+class _AdvancedSection {
+  static List<_SettingsGroup> groups(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    return FocusTraversalGroup(
-      policy: ReadingOrderTraversalPolicy(),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _SettingsGroup(title: l.sectionAccessibility, children: [
-            _NavTile(
-              icon: Icons.tv_rounded,
-              title: l.sectionAccessibility,
-              subtitle: l.dpadNavigation,
-              onTap: () => _showSettingsDialog(
-                context,
-                title: l.sectionAccessibility,
-                child: const _AccessibilityOptions(),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 16),
-          _SettingsGroup(title: l.sectionRecommendations, children: [
-            _NavTile(
-              icon: Icons.recommend_rounded,
-              title: l.matchmaking,
-              subtitle: l.matchmakingSubtitle,
-              onTap: () => context.go('/matchmaking'),
-            ),
-            _NavTile(
-              icon: Icons.filter_list_rounded,
-              title: l.settingsCategoryFilters,
-              subtitle: l.settingsCategoryFiltersHelp,
-              onTap: () => context.push('/category-filters'),
-            ),
-          ]),
-          const SizedBox(height: 16),
-          _SettingsGroup(title: l.sectionDiagnostics, children: [
-            if (Platform.isAndroid)
-              _NavTile(
-                icon: Icons.system_update_alt,
-                title: l.updateTitle,
-                subtitle: l.updateSettingsSubtitle,
-                onTap: () => showUpdateDialog(context),
-              ),
-            _NavTile(
-              icon: Icons.cleaning_services_outlined,
-              iconAsset: 'assets/icons/settings-cache.png',
-              title: l.clearCaches,
-              subtitle: l.clearCachesSubtitle,
-              onTap: () => _clearAllCaches(context, ref),
-            ),
-            _NavTile(
-              icon: Icons.restart_alt_outlined,
-              title: l.resetApp,
-              subtitle: l.resetAppSubtitle,
-              onTap: () => _factoryReset(context, ref),
-            ),
-            _NavTile(
-              icon: Icons.contact_support_outlined,
-              title: l.settingsContact,
-              subtitle: l.comingSoon,
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l.comingSoon)),
-              ),
-            ),
-            _NavTile(
-              icon: Icons.verified_user_outlined,
-              title: l.settingsActivateApp,
-              subtitle: l.comingSoon,
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l.comingSoon)),
-              ),
-            ),
-            const _AdvancedEntry(),
-          ]),
-        ]),
+    return [
+      _SettingsGroup(title: l.sectionDiagnostics, children: [
+        if (Platform.isAndroid)
+          _NavTile(
+            icon: Icons.system_update_alt,
+            title: l.updateTitle,
+            subtitle: l.updateSettingsSubtitle,
+            onTap: () => showUpdateDialog(context),
+          ),
+        _NavTile(
+          icon: Icons.cleaning_services_outlined,
+          iconAsset: 'assets/icons/settings-cache.png',
+          title: l.clearCaches,
+          subtitle: l.clearCachesSubtitle,
+          onTap: () => _clearAllCaches(context, ref),
+        ),
+        _NavTile(
+          icon: Icons.restart_alt_outlined,
+          title: l.resetApp,
+          subtitle: l.resetAppSubtitle,
+          onTap: () => _factoryReset(context, ref),
+        ),
+      ]),
+    ];
+  }
+
+  static List<Widget> standalone(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    return [
+      _NavTile(
+        icon: Icons.recommend_rounded,
+        title: l.matchmaking,
+        subtitle: l.matchmakingSubtitle,
+        onTap: () => context.go('/matchmaking'),
       ),
-    );
+      _NavTile(
+        icon: Icons.contact_support_outlined,
+        title: l.settingsContact,
+        subtitle: l.comingSoon,
+        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.comingSoon)),
+        ),
+      ),
+      _NavTile(
+        icon: Icons.verified_user_outlined,
+        title: l.settingsActivateApp,
+        subtitle: l.comingSoon,
+        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.comingSoon)),
+        ),
+      ),
+      const _AdvancedEntry(),
+    ];
   }
 
   static Future<void> _clearAllCaches(
@@ -1177,17 +1319,19 @@ class _AccessibilityOptions extends ConsumerWidget {
           title: l.highContrast,
           value: s.highContrast,
           onChanged: n.setHighContrast,
-          autofocus: true,
+          checkbox: true,
         ),
         _SettingsToggle(
           title: l.dpadNavigation,
           value: s.dpadNavigation,
           onChanged: n.setDpadNavigation,
+          checkbox: true,
         ),
         _SettingsToggle(
           title: l.fontSize,
           value: s.fontSizeScale > 1,
           onChanged: (value) => n.setFontSizeScale(value ? 1.3 : 1),
+          checkbox: true,
         ),
       ],
     );
@@ -1227,12 +1371,14 @@ class _AdvancedEntry extends StatelessWidget {
                   height: 60,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: scheme.surfaceContainer,
-                    border: Border.all(
-                      color:
-                          scheme.primary.withValues(alpha: focused ? 1 : 0.5),
-                      width: focused ? 2.5 : 1,
-                    ),
+                    color: focused
+                        ? scheme.primary.withValues(alpha: 0.04)
+                        : Colors.transparent,
+                    border: focused
+                        ? Border.all(
+                            color: scheme.primary.withValues(alpha: 0.2),
+                          )
+                        : null,
                   ),
                 ),
               ),
