@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/core/utils/language_label.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/player_overlay_decoration.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
@@ -28,6 +29,7 @@ Future<void> showStreamDetailsSheet(
       barrierColor: Colors.transparent,
       builder: (context) => LayoutBuilder(
         builder: (context, constraints) => Dialog(
+          alignment: Alignment.bottomRight,
           insetPadding: const EdgeInsets.all(12),
           clipBehavior: Clip.antiAlias,
           backgroundColor: Colors.transparent,
@@ -43,7 +45,7 @@ Future<void> showStreamDetailsSheet(
               width: MediaQuery.orientationOf(context) == Orientation.landscape
                   ? math.min(600, math.max(0, constraints.maxWidth - 24))
                   : math.min(820, math.max(0, constraints.maxWidth - 24)),
-              child: StreamDetailsSheet(
+              child: _StreamDetailsPanel(
                 controller: controller,
                 mediaKey: mediaKey,
                 isLive: true,
@@ -71,7 +73,7 @@ Future<void> showStreamDetailsSheet(
             : MediaQuery.sizeOf(context).width,
         child: Material(
           type: MaterialType.transparency,
-          child: StreamDetailsSheet(
+          child: _StreamDetailsPanel(
             controller: controller,
             mediaKey: mediaKey,
           ),
@@ -79,6 +81,43 @@ Future<void> showStreamDetailsSheet(
       ),
     ),
   );
+}
+
+class _StreamDetailsPanel extends StatelessWidget {
+  const _StreamDetailsPanel({
+    required this.controller,
+    required this.mediaKey,
+    this.isLive = false,
+  });
+
+  final VideoPlayerController controller;
+  final String mediaKey;
+  final bool isLive;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Theme(
+      data: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: scheme.primary,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: DecoratedBox(
+          decoration: playerOverlayDecoration(),
+          child: StreamDetailsSheet(
+            controller: controller,
+            mediaKey: mediaKey,
+            isLive: isLive,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class StreamDetailsSheet extends ConsumerStatefulWidget {
@@ -846,6 +885,8 @@ class _TrackTile extends StatelessWidget {
       child: ExcludeFocus(
         child: ListTile(
           dense: true,
+          tileColor: Colors.transparent,
+          selectedTileColor: Colors.transparent,
           visualDensity: VisualDensity.compact,
           contentPadding: const EdgeInsets.symmetric(horizontal: 10),
           horizontalTitleGap: 6,

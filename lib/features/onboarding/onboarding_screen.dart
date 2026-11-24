@@ -171,7 +171,7 @@ class _OnboardingConfigScreenState
       onTap: _saving ? null : () => setState(() => _selected = profile),
       selected: isSelected,
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -189,14 +189,14 @@ class _OnboardingConfigScreenState
         child: Row(
           children: [
             Container(
-              width: 52,
-              height: 52,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: scheme.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child:
-                  Icon(_profileIcon(profile), size: 26, color: scheme.primary),
+                  Icon(_profileIcon(profile), size: 22, color: scheme.primary),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -281,33 +281,54 @@ class _OnboardingConfigScreenState
                   _specs ??= specs;
                   final recommended = specs.recommendedProfile;
                   final displayed = _selected ?? recommended;
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildDeviceCard(specs),
-                        const SizedBox(height: 16),
-                        Text(
-                          l.onboardingChooseProfile,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                        ),
-                        const SizedBox(height: 10),
-                        _buildProfileCard(recommended, highlight: true),
-                        for (final profile in DeviceProfile.values)
-                          if (profile != recommended) ...[
-                            const SizedBox(height: 10),
-                            _buildProfileCard(profile, highlight: false),
-                          ],
-                        if (displayed.disable3D) ...[
+                  final profileOptions = Column(
+                    key: const ValueKey('device-profile-options'),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        l.onboardingChooseProfile,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildProfileCard(recommended, highlight: true),
+                      for (final profile in DeviceProfile.values)
+                        if (profile != recommended) ...[
                           const SizedBox(height: 10),
-                          _buildProfileHint(displayed),
+                          _buildProfileCard(profile, highlight: false),
                         ],
+                      if (displayed.disable3D) ...[
+                        const SizedBox(height: 10),
+                        _buildProfileHint(displayed),
                       ],
-                    ),
+                    ],
+                  );
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final sideBySide = constraints.maxWidth >= 600;
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                        child: sideBySide
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: _buildDeviceCard(specs)),
+                                  const SizedBox(width: 16),
+                                  Expanded(child: profileOptions),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildDeviceCard(specs),
+                                  const SizedBox(height: 16),
+                                  profileOptions,
+                                ],
+                              ),
+                      );
+                    },
                   );
                 },
               ),

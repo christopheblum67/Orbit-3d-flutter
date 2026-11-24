@@ -24,11 +24,13 @@ import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart'
     show showPlayerEngineConfigSheet;
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/readme_contact_dialog.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/update_dialog.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 import 'package:orbit_3d_flutter/features/settings/cloud_account_screen.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_activity_sync_provider.dart';
 import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
@@ -192,7 +194,7 @@ class _SettingsGrid extends StatelessWidget {
 }
 
 /// ─── Tuile de navigation réutilisable ────────────────────────────
-class _NavTile extends StatelessWidget {
+class _NavTile extends ConsumerWidget {
   const _NavTile({
     required this.icon,
     required this.title,
@@ -212,89 +214,101 @@ class _NavTile extends StatelessWidget {
   final bool autofocus;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    return TvFocus(
-      autofocus: autofocus,
-      onActivate: onTap,
-      enableTvEffects: false,
-      child: Builder(
-        builder: (context) {
-          final focused = Focus.of(context).hasFocus;
-          return ExcludeFocus(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: scheme.surfaceContainer,
-                          border: Border.all(
-                            color: scheme.primary
-                                .withValues(alpha: focused ? 1 : 0.5),
-                            width: focused ? 2.5 : 1,
+    ref.watch(tvModeProvider);
+    final isTv = ref.watch(tvModeControllerProvider).isRealTv;
+    final targetSize = isTv
+        ? 76.0
+        : MediaQuery.orientationOf(context) == Orientation.landscape
+            ? 52.0
+            : 60.0;
+    return LayoutBuilder(builder: (context, constraints) {
+      final diameter = (constraints.maxWidth - 6).clamp(0.0, targetSize);
+      return TvFocus(
+        autofocus: autofocus,
+        onActivate: onTap,
+        enableTvEffects: false,
+        child: Builder(
+          builder: (context) {
+            final focused = Focus.of(context).hasFocus;
+            return ExcludeFocus(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onTap,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: diameter,
+                          height: diameter,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: scheme.surfaceContainer,
+                            border: Border.all(
+                              color: scheme.primary
+                                  .withValues(alpha: focused ? 1 : 0.5),
+                              width: focused ? 2.5 : 1,
+                            ),
+                            boxShadow: focused
+                                ? [
+                                    BoxShadow(
+                                      color: scheme.primary
+                                          .withValues(alpha: 0.35),
+                                      blurRadius: 12,
+                                    ),
+                                  ]
+                                : null,
                           ),
-                          boxShadow: focused
-                              ? [
-                                  BoxShadow(
-                                    color:
-                                        scheme.primary.withValues(alpha: 0.35),
-                                    blurRadius: 12,
-                                  ),
-                                ]
-                              : null,
+                          child: Center(
+                            child: iconAsset != null
+                                ? Image.asset(
+                                    iconAsset!,
+                                    width: diameter * 0.65,
+                                    height: diameter * 0.65,
+                                    excludeFromSemantics: true,
+                                  )
+                                : Icon(icon,
+                                    size: diameter * 0.46,
+                                    color: scheme.primary),
+                          ),
                         ),
-                        child: Center(
-                          child: iconAsset != null
-                              ? Image.asset(
-                                  iconAsset!,
-                                  width: 36,
-                                  height: 36,
-                                  excludeFromSemantics: true,
-                                )
-                              : Icon(icon, size: 26, color: scheme.primary),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        title,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: focused ? scheme.primary : scheme.onSurface,
-                        ),
-                      ),
-                      if (subtitle.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
-                          subtitle,
+                          title,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 9,
-                            color: scheme.onSurfaceVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: focused ? scheme.primary : scheme.onSurface,
                           ),
                         ),
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
-    );
+            );
+          },
+        ),
+      );
+    });
   }
 }
 
@@ -320,6 +334,7 @@ class _AccountSection {
         ),
         _NavTile(
           icon: Icons.settings_outlined,
+          iconAsset: 'assets/icons/settings-preferences.png',
           title: l.accountPreferences,
           onTap: () => context.go('/profile/preferences'),
         ),
@@ -336,6 +351,7 @@ class _AccountSection {
     final l = AppLocalizations.of(context);
     return _NavTile(
       icon: Icons.cloud_outlined,
+      iconAsset: 'assets/icons/settings-backup.png',
       title: l.sectionBackup,
       onTap: () => _showSettingsDialog(
         context,
@@ -567,6 +583,7 @@ class _PlayerAudioSection {
     final l = AppLocalizations.of(context);
     return _NavTile(
       icon: Icons.tune_rounded,
+      iconAsset: 'assets/icons/settings-accessibility.png',
       title: l.sectionAccessibility,
       onTap: () => showDialog<void>(
         context: context,
@@ -587,7 +604,7 @@ class _CombinedSettingsDialog extends StatefulWidget {
 class _CombinedSettingsDialogState extends State<_CombinedSettingsDialog>
     with SingleTickerProviderStateMixin {
   late final TabController _controller;
-  final _tabs = List.generate(5, (index) => FocusNode());
+  final _tabs = List.generate(4, (index) => FocusNode());
   final _visitedTabs = <int>{0};
 
   @override
@@ -621,14 +638,12 @@ class _CombinedSettingsDialogState extends State<_CombinedSettingsDialog>
     final l = AppLocalizations.of(context);
     final labels = [
       l.sectionAccessibility,
-      l.tabNetwork,
       l.settingsCategoryFilters,
       l.audioAndNightFocus,
       l.sectionMemory,
     ];
     const panels = [
       SingleChildScrollView(child: _AccessibilityOptions()),
-      SingleChildScrollView(child: _DnsProviderTile()),
       CategoryFilterScreen(embedded: true),
       SingleChildScrollView(child: _AudioOptions()),
       SingleChildScrollView(child: MemorySettingsPanel()),
@@ -751,9 +766,12 @@ Future<void> _showSettingsDialog(
           ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
           : null,
       contentPadding: compact ? const EdgeInsets.fromLTRB(16, 8, 16, 0) : null,
-      title: Text(title),
+      title: Text(
+        title,
+        style: compact ? Theme.of(context).textTheme.titleMedium : null,
+      ),
       content: SizedBox(
-        width: compact ? 440 : 520,
+        width: compact ? 320 : 520,
         child: FocusTraversalGroup(
           policy: ReadingOrderTraversalPolicy(),
           child: SingleChildScrollView(child: child),
@@ -1040,6 +1058,7 @@ class _AdvancedSection {
         if (Platform.isAndroid)
           _NavTile(
             icon: Icons.system_update_alt,
+            iconAsset: 'assets/icons/settings-update.png',
             title: l.updateTitle,
             onTap: () => showUpdateDialog(context),
           ),
@@ -1058,6 +1077,7 @@ class _AdvancedSection {
     return [
       _NavTile(
         icon: Icons.contact_support_outlined,
+        iconAsset: 'assets/icons/settings-contact.png',
         title: l.settingsContact,
         onTap: () => ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l.comingSoon)),
@@ -1065,11 +1085,21 @@ class _AdvancedSection {
       ),
       _NavTile(
         icon: Icons.balance_outlined,
+        iconAsset: 'assets/icons/settings-legal.png',
         title: l.legalNotice,
-        onTap: () => context.go('/legal?flow=settings'),
+        onTap: () => showDialog<void>(
+          context: context,
+          builder: (dialogContext) => ReadmeContactDialog(
+            onLegal: () {
+              Navigator.pop(dialogContext);
+              context.go('/legal?flow=settings');
+            },
+          ),
+        ),
       ),
       _NavTile(
         icon: Icons.verified_user_outlined,
+        iconAsset: 'assets/icons/settings-activate.png',
         title: l.settingsActivateApp,
         onTap: () => ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l.comingSoon)),
@@ -1077,6 +1107,7 @@ class _AdvancedSection {
       ),
       _NavTile(
         icon: Icons.restart_alt_outlined,
+        iconAsset: 'assets/icons/settings-reset.png',
         title: l.resetApp,
         onTap: () => _factoryReset(context, ref),
       ),
@@ -1256,6 +1287,16 @@ class _AccessibilityOptions extends ConsumerWidget {
           onChanged: (value) => n.setFontSizeScale(value ? 1.3 : 1),
           checkbox: true,
         ),
+        const Divider(),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            l.tabNetwork,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const _DnsProviderTile(),
       ],
     );
   }

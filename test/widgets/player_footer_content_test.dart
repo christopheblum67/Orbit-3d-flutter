@@ -28,6 +28,7 @@ void main() {
       var back = 0;
       var forward = 0;
       var progress = 0;
+      var details = 0;
       final playPauseFocus = FocusNode();
       addTearDown(playPauseFocus.dispose);
       await tester.pumpWidget(
@@ -61,8 +62,7 @@ void main() {
                   onSeekBack30: () => back++,
                   onSeekForward30: () => forward++,
                   onToggleNightFocus: () {},
-                  onDetailsOpened: () {},
-                  onDetailsClosed: () {},
+                  onDetailsPressed: () => details++,
                   onProgressInteraction: () => progress++,
                 ),
               ),
@@ -71,9 +71,12 @@ void main() {
         ),
       );
       final cast = tester.widget<CastButton>(find.byType(CastButton));
-      expect(tester.widget<IconButton>(find.ancestor(
-          of: find.byIcon(Icons.play_arrow_rounded),
-          matching: find.byType(IconButton))).focusNode,
+      expect(
+          tester
+              .widget<IconButton>(find.ancestor(
+                  of: find.byIcon(Icons.play_arrow_rounded),
+                  matching: find.byType(IconButton)))
+              .focusNode,
           same(playPauseFocus));
       expect(cast.isLive, type == PlaybackContentType.live);
       expect(cast.streamUrl, 'https://example.test/stream');
@@ -86,8 +89,7 @@ void main() {
           type == PlaybackContentType.live ? 'Channel' : 'Replay',
         );
         expect(footer.showSeek, type == PlaybackContentType.replay);
-        expect(footer.streamDetails.mediaKey, 'progress');
-        expect(footer.streamDetails.isLive, type == PlaybackContentType.live);
+        footer.streamDetails.onPressed();
         if (type == PlaybackContentType.live) {
           expect(footer.controller, isNull);
           expect(footer.onSeekBack30, isNull);
@@ -102,8 +104,7 @@ void main() {
         final footer = tester.widget<VodFooterBar>(find.byType(VodFooterBar));
         expect(footer.title, 'Series');
         expect(footer.episodeLabel, 'Episode');
-        expect(footer.streamDetails.mediaKey, 'progress');
-        expect(footer.streamDetails.isLive, isFalse);
+        footer.streamDetails.onPressed();
         footer.onSeekBack30();
         footer.onSeekForward30();
         footer.onProgressInteraction();
@@ -111,6 +112,7 @@ void main() {
       expect(back, type == PlaybackContentType.live ? 0 : 1);
       expect(forward, type == PlaybackContentType.live ? 0 : 1);
       expect(progress, type == PlaybackContentType.live ? 0 : 1);
+      expect(details, 1);
     });
   }
 }

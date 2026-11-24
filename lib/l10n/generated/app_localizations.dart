@@ -1834,12 +1834,6 @@ abstract class AppLocalizations {
   /// **'Synopsis'**
   String get browseSynopsis;
 
-  /// No description provided for @browseNotInSubscription.
-  ///
-  /// In fr, this message translates to:
-  /// **'Cette œuvre n’est pas présente dans votre abonnement actif. Découvrez-la sur l’une des plateformes référencées par TMDB.'**
-  String get browseNotInSubscription;
-
   /// No description provided for @browseExploreCategories.
   ///
   /// In fr, this message translates to:
@@ -5272,6 +5266,54 @@ abstract class AppLocalizations {
   /// **'Lisez-moi · Mentions légales'**
   String get legalNotice;
 
+  /// No description provided for @contactTeamTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contacter l’équipe'**
+  String get contactTeamTitle;
+
+  /// No description provided for @contactTeamIntro.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nous restons à votre écoute pour vos retours d’expérience, idées d’amélioration et signalements de bugs afin de faire évoluer l’application.'**
+  String get contactTeamIntro;
+
+  /// No description provided for @contactAddress.
+  ///
+  /// In fr, this message translates to:
+  /// **'Adresse de contact :'**
+  String get contactAddress;
+
+  /// No description provided for @contactImportant.
+  ///
+  /// In fr, this message translates to:
+  /// **'Important :'**
+  String get contactImportant;
+
+  /// No description provided for @contactTeamWarning.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les messages demandant une prolongation de période d’essai ou un mois gratuit ne recevront pas de réponse.'**
+  String get contactTeamWarning;
+
+  /// No description provided for @contactCompose.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écrire un e-mail'**
+  String get contactCompose;
+
+  /// No description provided for @contactMailUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune application de messagerie disponible.'**
+  String get contactMailUnavailable;
+
+  /// No description provided for @contactLegal.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mentions légales'**
+  String get contactLegal;
+
   /// No description provided for @legalNoticeSubtitle.
   ///
   /// In fr, this message translates to:
@@ -7215,6 +7257,18 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Réglages avancés'**
   String get advancedSettingsTitle;
+
+  /// No description provided for @freeMode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mode gratuit'**
+  String get freeMode;
+
+  /// No description provided for @freeModePending.
+  ///
+  /// In fr, this message translates to:
+  /// **'Option à configurer ultérieurement, sans effet pour le moment.'**
+  String get freeModePending;
 
   /// No description provided for @advancedSettingsIntro.
   ///

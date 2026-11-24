@@ -1032,10 +1032,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get browseSynopsis => 'Trama';
 
   @override
-  String get browseNotInSubscription =>
-      'Questo titolo non è presente nel tuo abbonamento attivo. Scoprilo su una delle piattaforme elencate da TMDB.';
-
-  @override
   String get browseExploreCategories => 'Esplora per categoria';
 
   @override
@@ -3026,6 +3022,33 @@ class AppLocalizationsIt extends AppLocalizations {
   String get legalNotice => 'Leggimi · Informativa legale';
 
   @override
+  String get contactTeamTitle => 'Contatta il team';
+
+  @override
+  String get contactTeamIntro =>
+      'Ascoltiamo le tue esperienze, le idee per migliorare e le segnalazioni di bug per far evolvere l’applicazione.';
+
+  @override
+  String get contactAddress => 'Indirizzo di contatto:';
+
+  @override
+  String get contactImportant => 'Importante:';
+
+  @override
+  String get contactTeamWarning =>
+      'Non risponderemo ai messaggi che richiedono una proroga del periodo di prova o un mese gratuito.';
+
+  @override
+  String get contactCompose => 'Scrivi un’email';
+
+  @override
+  String get contactMailUnavailable =>
+      'Nessuna applicazione email disponibile.';
+
+  @override
+  String get contactLegal => 'Informativa legale';
+
+  @override
   String get legalNoticeSubtitle =>
       'Uso dell\'app, titolari dei diritti e privacy';
 
@@ -4096,6 +4119,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get advancedSettingsTitle => 'Impostazioni avanzate';
+
+  @override
+  String get freeMode => 'Modalità gratuita';
+
+  @override
+  String get freeModePending =>
+      'Da configurare in seguito; per ora non ha alcun effetto.';
 
   @override
   String get advancedSettingsIntro =>

@@ -164,12 +164,24 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
     required ValueChanged<bool?> onChanged,
     required Widget title,
     Widget? subtitle,
+    FocusNode? leftFocusNode,
+    FocusNode? rightFocusNode,
   }) {
     return TvFocus(
       focusNode: focusNode,
       onFocusChange: (focused) => _keepVisible(focusNode, focused),
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+              leftFocusNode != null) {
+            _requestFocus(leftFocusNode);
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowRight &&
+              rightFocusNode != null) {
+            _requestFocus(rightFocusNode);
+            return KeyEventResult.handled;
+          }
           if (event.logicalKey == LogicalKeyboardKey.enter ||
               event.logicalKey == LogicalKeyboardKey.select ||
               event.logicalKey == LogicalKeyboardKey.gameButtonA) {
@@ -387,7 +399,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                           child: Text(
                             l.audioAndNightFocus,
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -437,6 +449,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                                     child: Text(
                                       l.audioNightTitle,
                                       style: textTheme.bodyLarge?.copyWith(
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w700,
                                         color: _nightFocusEnabled
                                             ? null
@@ -456,55 +469,83 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                                   ),
                                 ],
                               ),
-                              _buildTvCheckboxListTile(
-                                focusNode: _dialogueBoostFocus,
-                                nextFocusNode: _bassKillerFocus,
-                                prevFocusNode: _nightFocusSwitchFocus,
-                                enabled: _nightFocusEnabled,
-                                value: _dialogueBoost,
-                                onChanged: (v) async {
-                                  await _notifier
-                                      .setNightFocusDialogueBoost(v ?? false);
-                                  await _push();
-                                },
-                                title: Text(
-                                  l.audioDialogueBoost,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                                subtitle: Text(
-                                  l.audioDialogueHelp,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: scheme.onSurfaceVariant,
+                              LayoutBuilder(builder: (context, constraints) {
+                                final horizontal = constraints.maxWidth >= 240;
+                                final rtl = Directionality.of(context) ==
+                                    TextDirection.rtl;
+                                final dialogue = _buildTvCheckboxListTile(
+                                  focusNode: _dialogueBoostFocus,
+                                  leftFocusNode: horizontal && rtl
+                                      ? _bassKillerFocus
+                                      : null,
+                                  rightFocusNode: horizontal && !rtl
+                                      ? _bassKillerFocus
+                                      : null,
+                                  nextFocusNode: _bassKillerFocus,
+                                  prevFocusNode: _nightFocusSwitchFocus,
+                                  enabled: _nightFocusEnabled,
+                                  value: _dialogueBoost,
+                                  onChanged: (v) async {
+                                    await _notifier
+                                        .setNightFocusDialogueBoost(v ?? false);
+                                    await _push();
+                                  },
+                                  title: Text(
+                                    l.audioDialogueBoost,
+                                    style: const TextStyle(fontSize: 12),
                                   ),
-                                ),
-                              ),
-                              _buildTvCheckboxListTile(
-                                focusNode: _bassKillerFocus,
-                                nextFocusNode:
-                                    _nightFocusEnabled && _dialogueBoost
-                                        ? _vocalGainSliderFocus
-                                        : _shiftMinusFocus,
-                                prevFocusNode: _dialogueBoostFocus,
-                                enabled: _nightFocusEnabled,
-                                value: _bassKiller,
-                                onChanged: (v) async {
-                                  await _notifier
-                                      .setNightFocusBassKiller(v ?? false);
-                                  await _push();
-                                },
-                                title: Text(
-                                  l.audioBassLimiter,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                                subtitle: Text(
-                                  l.audioBassHelp,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: scheme.onSurfaceVariant,
+                                  subtitle: Text(
+                                    l.audioDialogueHelp,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
                                   ),
-                                ),
-                              ),
+                                );
+                                final bass = _buildTvCheckboxListTile(
+                                  focusNode: _bassKillerFocus,
+                                  leftFocusNode: horizontal && !rtl
+                                      ? _dialogueBoostFocus
+                                      : null,
+                                  rightFocusNode: horizontal && rtl
+                                      ? _dialogueBoostFocus
+                                      : null,
+                                  nextFocusNode:
+                                      _nightFocusEnabled && _dialogueBoost
+                                          ? _vocalGainSliderFocus
+                                          : _shiftMinusFocus,
+                                  prevFocusNode: _dialogueBoostFocus,
+                                  enabled: _nightFocusEnabled,
+                                  value: _bassKiller,
+                                  onChanged: (v) async {
+                                    await _notifier
+                                        .setNightFocusBassKiller(v ?? false);
+                                    await _push();
+                                  },
+                                  title: Text(
+                                    l.audioBassLimiter,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  subtitle: Text(
+                                    l.audioBassHelp,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                );
+                                if (!horizontal) {
+                                  return Column(children: [dialogue, bass]);
+                                }
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: dialogue),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: bass),
+                                  ],
+                                );
+                              }),
                               if (_nightFocusEnabled && _dialogueBoost) ...[
                                 const SizedBox(height: 8),
                                 Row(
@@ -564,6 +605,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                                     child: Text(
                                       l.audioSyncTitle,
                                       style: textTheme.bodyLarge?.copyWith(
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -605,7 +647,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                                       '$_audioShiftMs ms',
                                       style: TextStyle(
                                         color: scheme.primary,
-                                        fontSize: 16,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),

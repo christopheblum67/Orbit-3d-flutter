@@ -214,6 +214,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   bool _protectedPlaybackUnsupported = false;
   int _generation = 0;
   bool _footerVisible = false;
+  bool _streamDetailsOpen = false;
   Timer? _footerTimer;
   Timer? _nextEpisodeTimer;
   Episode? _nextEpisode;
@@ -451,6 +452,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     Duration duration = _footerBarDuration,
     bool focusControls = true,
   }) {
+    if (_streamDetailsOpen) return;
     _footerTimer?.cancel();
     final firstShow = !_footerVisible;
     _footerVisible = true;
@@ -501,6 +503,24 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       _hideFooterBar();
     } else {
       _showFooterBar();
+    }
+  }
+
+  Future<void> _openStreamDetails() async {
+    final player = _controller;
+    if (player == null || _streamDetailsOpen) return;
+    _streamDetailsOpen = true;
+    _hideFooterBar();
+    try {
+      await showStreamDetailsSheet(
+        context,
+        player,
+        widget.progressId ?? widget.streamUrl,
+        isLive: widget.contentType == PlaybackContentType.live,
+      );
+    } finally {
+      _streamDetailsOpen = false;
+      if (mounted) _showFooterBar();
     }
   }
 
@@ -1951,18 +1971,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       case PlayerKeyAction.togglePlayback:
         _togglePlayPause();
       case PlayerKeyAction.showDetails:
-        final player = _controller;
-        if (player != null) {
-          _footerTimer?.cancel();
-          showStreamDetailsSheet(
-            context,
-            player,
-            widget.progressId ?? widget.streamUrl,
-            isLive: widget.contentType == PlaybackContentType.live,
-          ).whenComplete(() {
-            if (mounted) _showFooterBar();
-          });
-        }
+        unawaited(_openStreamDetails());
       case PlayerKeyAction.seekForward:
         _seekBy(const Duration(seconds: 30));
         _showFooterBar();
@@ -2096,8 +2105,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                                   onSeekForward30: () =>
                                       _seekBy(const Duration(seconds: 30)),
                                   onToggleNightFocus: _toggleNightFocus,
-                                  onDetailsOpened: () => _footerTimer?.cancel(),
-                                  onDetailsClosed: _showFooterBar,
+                                  onDetailsPressed: _openStreamDetails,
                                   onProgressInteraction: () =>
                                       _showFooterBar(focusControls: false),
                                 ),

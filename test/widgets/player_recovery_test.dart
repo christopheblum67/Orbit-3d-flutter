@@ -10,6 +10,8 @@ import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/player_footer_bars.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations_fr.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
@@ -157,6 +159,8 @@ class _VideoPlatform extends VideoPlayerPlatform {
   Future<List<VideoAudioTrack>> getAudioTracks(int playerId) async =>
       audioTracks;
   @override
+  Future<List<VideoTrack>> getVideoTracks(int playerId) async => [];
+  @override
   Future<void> selectAudioTrack(int playerId, String trackId) async {
     calls.add('audio:$playerId:$trackId');
   }
@@ -201,6 +205,78 @@ class _VideoPlatform extends VideoPlayerPlatform {
 }
 
 void main() {
+  for (final type in PlaybackContentType.values) {
+    testWidgets('stream details hide the ${type.name} footer', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      SharedPreferences.setMockInitialValues({});
+      PlayerProfileService.invalidate();
+      final previousPlatform = VideoPlayerPlatform.instance;
+      final video = _VideoPlatform();
+      VideoPlayerPlatform.instance = video;
+      addTearDown(() => VideoPlayerPlatform.instance = previousPlatform);
+      final monitor = _Online();
+      addTearDown(monitor.dispose);
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      for (final name in ['orbit/night_focus', 'orbit/player_config']) {
+        messenger.setMockMethodCallHandler(
+            MethodChannel(name), (_) async => null);
+        addTearDown(() =>
+            messenger.setMockMethodCallHandler(MethodChannel(name), null));
+      }
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          connectivityMonitorProvider.overrideWithValue(monitor),
+          subtitleControllerProvider.overrideWith((ref) => _Subtitles()),
+          deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+          playbackProgressServiceProvider.overrideWith((ref) => _Progress()),
+          rustProxyManagerProvider.overrideWithValue(RustProxyManager.instance),
+          activeSubscriptionProvider.overrideWithValue(null),
+        ],
+        child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: PlayerScreen(
+            streamUrl: 'https://example.test/video.mp4',
+            contentType: type,
+          ),
+        ),
+      ));
+      for (var i = 0; i < 50 && !video.calls.contains('play:1'); i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(video.calls, contains('play:1'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pump();
+      expect(find.byType(ContentFooterBar), findsOneWidget);
+      await tester.tap(find.byType(FooterStreamDetails));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(StreamDetailsSheet), findsOneWidget);
+      expect(find.byType(ContentFooterBar), findsNothing);
+      await tester.tap(find.byIcon(Icons.close).last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(StreamDetailsSheet), findsNothing);
+      expect(find.byType(ContentFooterBar), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(StreamDetailsSheet), findsOneWidget);
+      expect(find.byType(ContentFooterBar), findsNothing);
+      await tester.tap(find.byIcon(Icons.close).last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(ContentFooterBar), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
+
   for (final protected in [false, true]) {
     testWidgets('DASH session header protection: $protected', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;

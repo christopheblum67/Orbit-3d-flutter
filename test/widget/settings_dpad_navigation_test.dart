@@ -13,6 +13,7 @@ import 'package:orbit_3d_flutter/features/settings/cloud_account_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/category_filter_screen.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/readme_contact_dialog.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
@@ -73,6 +74,114 @@ class _CloudSync extends EncryptedActivitySyncNotifier {
 }
 
 void main() {
+  testWidgets('read me opens contact information and retains legal access',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    const channel = MethodChannel('plugins.flutter.io/url_launcher');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (_) async => false);
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const UnifiedSettingsScreen()),
+      GoRoute(path: '/legal', builder: (_, __) => const Text('LEGAL DOCUMENT')),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+      ],
+      child: MaterialApp.router(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final title = lookupAppLocalizations(const Locale('fr')).legalNotice;
+    await tester.ensureVisible(find.text(title));
+    await tester.tap(find.text(title));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReadmeContactDialog), findsOneWidget);
+    expect(find.text('Contacter l’équipe'), findsOneWidget);
+    await tester.tap(find.text('Mentions légales'));
+    await tester.pumpAndSettle();
+    expect(find.text('LEGAL DOCUMENT'), findsOneWidget);
+  });
+
+  for (final config in [
+    (size: const Size(360, 720), tv: false, manual: false, expected: 60.0),
+    (size: const Size(640, 360), tv: false, manual: true, expected: 52.0),
+    (size: const Size(960, 540), tv: true, manual: false, expected: 76.0),
+    (size: const Size(540, 960), tv: true, manual: false, expected: 76.0),
+  ]) {
+    testWidgets('settings icons adapt to ${config.size}, TV=${config.tv}',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = config.size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final controller = TvModeController();
+      if (config.tv) {
+        await controller.updateFromDetection(const DeviceDetectionResult(
+          deviceType: DeviceType.tv,
+          isTv: true,
+          confidence: 1,
+        ));
+      } else if (config.manual) {
+        controller.enable();
+      }
+      addTearDown(controller.dispose);
+      final router = GoRouter(routes: [
+        GoRoute(path: '/', builder: (_, __) => const UnifiedSettingsScreen()),
+      ]);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          tvModeControllerProvider.overrideWithValue(controller),
+          deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+          activeSubscriptionProvider.overrideWith((ref) => null),
+          currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+        ],
+        child: MaterialApp.router(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final profile = find
+          .ancestor(
+            of: find.text('User profiles'),
+            matching: find.byType(TvFocus),
+          )
+          .first;
+      final circle = find.descendant(
+        of: profile,
+        matching: find.byWidgetPredicate((widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).shape == BoxShape.circle),
+      );
+      final diameter = tester.getSize(circle).width;
+      expect(diameter, lessThanOrEqualTo(config.expected));
+      expect(diameter, greaterThanOrEqualTo(config.tv ? 65 : 48));
+      if (!config.tv) expect(diameter, closeTo(config.expected, 0.1));
+      final image = find.descendant(of: profile, matching: find.byType(Image));
+      expect(tester.getSize(image).width, closeTo(diameter * 0.65, 0.1));
+      expect(tester.getRect(circle).left,
+          greaterThanOrEqualTo(tester.getRect(profile).left));
+      expect(tester.getRect(circle).right,
+          lessThanOrEqualTo(tester.getRect(profile).right));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final size in [const Size(360, 720), const Size(640, 360)]) {
     for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
       testWidgets('combined settings tabs fit and work in $language at $size',
@@ -116,11 +225,14 @@ void main() {
         await tester.ensureVisible(find.text(l.sectionAccessibility));
         await tester.tap(find.text(l.sectionAccessibility));
         await tester.pumpAndSettle();
-        await tester.sendKeyEvent(language == 'ar'
-            ? LogicalKeyboardKey.arrowLeft
-            : LogicalKeyboardKey.arrowRight);
-        await tester.pumpAndSettle();
         expect(find.text(l.dnsProvider), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(TabBar),
+            matching: find.text(l.tabNetwork),
+          ),
+          findsNothing,
+        );
         await tester.sendKeyEvent(language == 'ar'
             ? LogicalKeyboardKey.arrowLeft
             : LogicalKeyboardKey.arrowRight);
@@ -213,6 +325,11 @@ void main() {
       await tester.tap(find.text(l.sectionBackup));
       await tester.pumpAndSettle();
       final dialog = find.byType(AlertDialog);
+      final title = tester.widget<Text>(find.descendant(
+        of: dialog,
+        matching: find.text('${l.settingsCloudAccount} · ${l.sectionBackup}'),
+      ));
+      expect(title.style?.fontSize, lessThanOrEqualTo(16));
       for (final label in [
         l.settingsCloudAccount,
         l.backupExport,
@@ -563,7 +680,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('network tab is localized and editable in $language',
+    testWidgets('network section is localized and editable in $language',
         (tester) async {
       SharedPreferences.setMockInitialValues({});
       tester.view.physicalSize = const Size(360, 720);
@@ -597,15 +714,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(l.sectionAccessibility));
       await tester.pumpAndSettle();
-      await tester.sendKeyEvent(language == 'ar'
-          ? LogicalKeyboardKey.arrowLeft
-          : LogicalKeyboardKey.arrowRight);
-      await tester.pumpAndSettle();
       expect(find.text(l.dnsProvider), findsOneWidget);
+      expect(find.text(l.tabNetwork), findsOneWidget);
       expect(find.text(l.cloudflareReset), findsNothing);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.ensureVisible(find.byType(DropdownButton<String>));
+      await tester.tap(find.byType(DropdownButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('8.8.8.8 (Google DoH)').last);
       await tester.pumpAndSettle();
@@ -654,9 +767,21 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byType(Dialog), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pumpAndSettle();
       expect(find.text('DNS provider (DoH)'), findsOneWidget);
+      for (var i = 0; i < 4; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(find.text('8.8.8.8 (Google DoH)'), findsWidgets);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(settings);
+      await tester.tap(settings);
+      await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
       expect(
@@ -839,6 +964,26 @@ void main() {
     expect(find.byType(TabBar), findsNothing);
     expect(find.byType(TabBarView), findsNothing);
     final l = lookupAppLocalizations(const Locale('en'));
+    for (final entry in {
+      l.sectionAccessibility: 'assets/icons/settings-accessibility.png',
+      l.legalNotice: 'assets/icons/settings-legal.png',
+      l.settingsActivateApp: 'assets/icons/settings-activate.png',
+      l.resetApp: 'assets/icons/settings-reset.png',
+      l.accountPreferences: 'assets/icons/settings-preferences.png',
+      l.sectionBackup: 'assets/icons/settings-backup.png',
+      l.settingsContact: 'assets/icons/settings-contact.png',
+    }.entries) {
+      final tile = find
+          .ancestor(
+            of: find.text(entry.key),
+            matching: find.byType(TvFocus),
+          )
+          .first;
+      final image = tester.widget<Image>(
+        find.descendant(of: tile, matching: find.byType(Image)),
+      );
+      expect((image.image as AssetImage).assetName, entry.value);
+    }
     for (final title in [
       l.sectionAccountProfile,
       l.sectionDiagnostics,

@@ -18,6 +18,57 @@ class _Storage extends StorageService {
 }
 
 void main() {
+  for (final size in [const Size(960, 540), const Size(360, 720)]) {
+    testWidgets('device profiles use available space at $size', (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          deviceHardwareDetectionProvider.overrideWithValue(
+            () async => const HardwareSpecs(
+              deviceName: 'Test',
+              brand: 'Test',
+              isTv: false,
+              isPhysicalDevice: true,
+              totalRamMb: 4096,
+              lowRam: false,
+              sdkInt: 30,
+              connection: ConnectionKind.wifi,
+              recommendedProfile: DeviceProfile.standard,
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: OnboardingConfigScreen(),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final l = lookupAppLocalizations(const Locale('en'));
+      final device = tester.getRect(find.text(l.onboardingDeviceDetected));
+      final options =
+          tester.getRect(find.byKey(const ValueKey('device-profile-options')));
+      if (size.width >= 600) {
+        expect(options.left, greaterThan(device.right));
+        expect(find.text(l.onboardingProfile('Standard')).hitTestable(),
+            findsOneWidget);
+        expect(find.text(l.onboardingProfile('Ultra')).hitTestable(),
+            findsOneWidget);
+      } else {
+        expect(options.top, greaterThan(device.bottom));
+      }
+      for (final profile in ['Standard', 'Ultra']) {
+        expect(find.text(l.onboardingProfile(profile)), findsOneWidget);
+      }
+      expect(find.text(l.confirmAndContinue).hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('onboarding uses the selected language', (tester) async {
     await tester.pumpWidget(const ProviderScope(
       child: MaterialApp(

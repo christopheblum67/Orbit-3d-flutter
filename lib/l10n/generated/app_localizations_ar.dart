@@ -1004,10 +1004,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get browseSynopsis => 'الملخص';
 
   @override
-  String get browseNotInSubscription =>
-      'هذا العمل غير متاح في اشتراكك النشط. اكتشفه على إحدى المنصات المدرجة لدى TMDB.';
-
-  @override
   String get browseExploreCategories => 'استكشف حسب الفئة';
 
   @override
@@ -2932,6 +2928,32 @@ class AppLocalizationsAr extends AppLocalizations {
   String get legalNotice => 'اقرأني · إشعار قانوني';
 
   @override
+  String get contactTeamTitle => 'تواصل مع الفريق';
+
+  @override
+  String get contactTeamIntro =>
+      'نرحب بتجاربكم وأفكاركم للتحسين وبلاغات الأخطاء للمساعدة في تطوير التطبيق.';
+
+  @override
+  String get contactAddress => 'عنوان التواصل:';
+
+  @override
+  String get contactImportant => 'مهم:';
+
+  @override
+  String get contactTeamWarning =>
+      'لن يتم الرد على الرسائل التي تطلب تمديد الفترة التجريبية أو شهرًا مجانيًا.';
+
+  @override
+  String get contactCompose => 'كتابة بريد إلكتروني';
+
+  @override
+  String get contactMailUnavailable => 'لا يتوفر تطبيق للبريد الإلكتروني.';
+
+  @override
+  String get contactLegal => 'الإشعار القانوني';
+
+  @override
   String get legalNoticeSubtitle => 'استخدام التطبيق، أصحاب الحقوق والخصوصية';
 
   @override
@@ -3975,6 +3997,13 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get advancedSettingsTitle => 'إعدادات متقدمة';
+
+  @override
+  String get freeMode => 'الوضع المجاني';
+
+  @override
+  String get freeModePending =>
+      'سيتم ضبط هذا الخيار لاحقًا، وليس له تأثير حاليًا.';
 
   @override
   String get advancedSettingsIntro =>

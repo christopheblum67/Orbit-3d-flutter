@@ -12,9 +12,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart'
-    show
-        cloudflareSessionProvider,
-        tmdbServiceProvider;
+    show cloudflareSessionProvider, tmdbServiceProvider;
 
 /// Code d'accès à l'écran des réglages sensibles.
 ///
@@ -156,6 +154,7 @@ class _AdvancedSettingsScreenState
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final tmdbKey = ref.watch(tmdbApiKeyOverrideProvider);
+    final freeMode = ref.watch(advancedSettingsProvider).freeMode;
 
     return Scaffold(
       appBar: AppBar(
@@ -177,6 +176,14 @@ class _AdvancedSettingsScreenState
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
+          ),
+          const SizedBox(height: 16),
+          SettingsSwitchTile(
+            title: l.freeMode,
+            subtitle: l.freeModePending,
+            value: freeMode,
+            onChanged: ref.read(advancedSettingsProvider.notifier).setFreeMode,
+            icon: Icons.lock_open_outlined,
           ),
           const SizedBox(height: 16),
           SettingsSectionTitle(l.sectionCertPinning),

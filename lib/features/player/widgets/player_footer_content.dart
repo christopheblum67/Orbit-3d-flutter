@@ -30,8 +30,7 @@ class PlayerFooterContent extends StatelessWidget {
     required this.onSeekBack30,
     required this.onSeekForward30,
     required this.onToggleNightFocus,
-    required this.onDetailsOpened,
-    required this.onDetailsClosed,
+    required this.onDetailsPressed,
     required this.onProgressInteraction,
   });
 
@@ -57,8 +56,7 @@ class PlayerFooterContent extends StatelessWidget {
   final VoidCallback onSeekBack30;
   final VoidCallback onSeekForward30;
   final VoidCallback onToggleNightFocus;
-  final VoidCallback onDetailsOpened;
-  final VoidCallback onDetailsClosed;
+  final VoidCallback onDetailsPressed;
   final VoidCallback onProgressInteraction;
 
   @override
@@ -66,11 +64,7 @@ class PlayerFooterContent extends StatelessWidget {
     final isLive = contentType == PlaybackContentType.live;
     final castButton = CastButton(streamUrl: streamUrl, isLive: isLive);
     final streamDetails = FooterStreamDetails(
-      controller: controller,
-      mediaKey: progressId ?? streamUrl,
-      isLive: isLive,
-      onOpened: onDetailsOpened,
-      onClosed: onDetailsClosed,
+      onPressed: onDetailsPressed,
     );
     return switch (contentType) {
       PlaybackContentType.live => LiveFooterBar(

@@ -78,6 +78,7 @@ class AdvancedSettings {
   final String dnsProvider;
   final bool zeroLagPrefetch;
   final bool localVideoProxy;
+  final bool freeMode;
 
   /// Aperçu vidéo dans la navigation Live. `null` = automatique (désactivé
   /// sur Android TV, activé ailleurs).
@@ -118,6 +119,7 @@ class AdvancedSettings {
     this.dnsProvider = '1.1.1.1 (Cloudflare DoH)',
     this.zeroLagPrefetch = true,
     this.localVideoProxy = false,
+    this.freeMode = false,
     this.livePreviewVideo,
     this.playerLive = const PlayerPerTypeConfig(
       primary: PlayerEngine.exoPlayer,
@@ -155,6 +157,7 @@ class AdvancedSettings {
     String? dnsProvider,
     bool? zeroLagPrefetch,
     bool? localVideoProxy,
+    bool? freeMode,
     bool? livePreviewVideo,
     PlayerPerTypeConfig? playerLive,
     PlayerPerTypeConfig? playerVod,
@@ -179,6 +182,7 @@ class AdvancedSettings {
       dnsProvider: dnsProvider ?? this.dnsProvider,
       zeroLagPrefetch: zeroLagPrefetch ?? this.zeroLagPrefetch,
       localVideoProxy: localVideoProxy ?? this.localVideoProxy,
+      freeMode: freeMode ?? this.freeMode,
       livePreviewVideo: livePreviewVideo ?? this.livePreviewVideo,
       playerLive: playerLive ?? this.playerLive,
       playerVod: playerVod ?? this.playerVod,
@@ -219,6 +223,7 @@ class AdvancedSettings {
   static const kDnsProvider = 'dns_provider';
   static const kZeroLagPrefetch = 'zero_lag_prefetch';
   static const kLocalVideoProxy = 'local_video_proxy';
+  static const kFreeMode = 'free_mode';
   static const kLivePreviewVideo = 'live_preview_video';
 
   // Clés de persistance des lecteurs par type de contenu (moteur par index).
@@ -275,6 +280,7 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       zeroLagPrefetch: prefs.getBool(AdvancedSettings.kZeroLagPrefetch) ?? true,
       localVideoProxy:
           prefs.getBool(AdvancedSettings.kLocalVideoProxy) ?? false,
+      freeMode: prefs.getBool(AdvancedSettings.kFreeMode) ?? false,
       livePreviewVideo: prefs.getBool(AdvancedSettings.kLivePreviewVideo),
       playerLive: _readPlayerConfig(
         prefs,
@@ -413,6 +419,11 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
   Future<void> setLocalVideoProxy(bool value) async {
     state = state.copyWith(localVideoProxy: value);
     await _persistBool(AdvancedSettings.kLocalVideoProxy, value);
+  }
+
+  Future<void> setFreeMode(bool value) async {
+    state = state.copyWith(freeMode: value);
+    await _persistBool(AdvancedSettings.kFreeMode, value);
   }
 
   Future<void> setLivePreviewVideo(bool value) async {

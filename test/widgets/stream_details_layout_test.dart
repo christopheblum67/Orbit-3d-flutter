@@ -83,19 +83,19 @@ FocusNode _trackFocus(WidgetTester tester, String label) {
       .firstWhere((node) => node.canRequestFocus);
 }
 
-Future<void> _expectAmberBehindPanel(
+Future<void> _expectTranslucentPanel(
     WidgetTester tester, GlobalKey key, Rect panel) async {
   await tester.runAsync(() async {
     final boundary =
         key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     final image = await boundary.toImage();
     final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
-    final x = (panel.right - 3).floor();
-    final y = (panel.bottom - 3).floor();
+    final x = (panel.right - 25).floor();
+    final y = (panel.bottom - 10).floor();
     final offset = (y * image.width + x) * 4;
-    expect(bytes.getUint8(offset), 255);
-    expect(bytes.getUint8(offset + 1), 193);
-    expect(bytes.getUint8(offset + 2), 7);
+    expect(bytes.getUint8(offset), inInclusiveRange(100, 130));
+    expect(bytes.getUint8(offset + 1), inInclusiveRange(75, 100));
+    expect(bytes.getUint8(offset + 2), lessThan(10));
     image.dispose();
   });
 }
@@ -167,7 +167,7 @@ void main() {
         find.ancestor(of: sheet, matching: find.byType(Material)).first,
       );
       expect(material.type, MaterialType.transparency);
-      await _expectAmberBehindPanel(tester, screenKey, sheetRect);
+      await _expectTranslucentPanel(tester, screenKey, sheetRect);
       final close = tester.widget<IconButton>(
         find.widgetWithIcon(IconButton, Icons.close),
       );
@@ -250,7 +250,7 @@ void main() {
   });
 
   for (final size in [const Size(960, 540), const Size(360, 640)]) {
-    testWidgets('live details fit and are vertically centered at $size',
+    testWidgets('live details fit and are anchored to the bottom at $size',
         (tester) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
@@ -307,7 +307,8 @@ void main() {
       final dialog = tester.getRect(
         find.byKey(const ValueKey('live-stream-details-panel')),
       );
-      expect(dialog.center.dy, closeTo(size.height / 2, 0.1));
+      expect(dialog.bottom, closeTo(size.height - 12, 0.1));
+      expect(dialog.right, closeTo(size.width - 12, 0.1));
       expect(dialog.height, lessThanOrEqualTo(size.height - 24));
       expect(dialog.height, lessThanOrEqualTo(size.height * 0.78 + 0.1));
       expect(dialog.width, lessThanOrEqualTo(size.width - 24));
@@ -315,7 +316,13 @@ void main() {
       expect(dialogWidget.backgroundColor, Colors.transparent);
       expect(dialogWidget.surfaceTintColor, Colors.transparent);
       expect(dialogWidget.elevation, 0);
-      await _expectAmberBehindPanel(tester, screenKey, dialog);
+      final tiles = find.descendant(
+          of: find.byType(StreamDetailsSheet), matching: find.byType(ListTile));
+      for (final tile in tester.widgetList<ListTile>(tiles)) {
+        expect(tile.tileColor, Colors.transparent);
+        expect(tile.selectedTileColor, Colors.transparent);
+      }
+      await _expectTranslucentPanel(tester, screenKey, dialog);
       final barrier = tester
           .widgetList<ModalBarrier>(
             find.byType(ModalBarrier),

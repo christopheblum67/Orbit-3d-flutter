@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 import 'package:orbit_3d_flutter/services/profile_pin_guard.dart';
@@ -70,6 +71,56 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('free mode is a saved placeholder accessible by remote',
+      (tester) async {
+    final container = ProviderContainer(overrides: [
+      activeSubscriptionProvider.overrideWith((ref) => null),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(advancedSettingsProvider.notifier).load();
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(
+        locale: Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdvancedSettingsScreen(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final title = find.text('Mode gratuit');
+    final toggle = find.widgetWithText(SwitchListTile, 'Mode gratuit');
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    expect(
+        find.text(
+            'Option à configurer ultérieurement, sans effet pour le moment.'),
+        findsOneWidget);
+    Focus.of(tester.element(title)).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
+    final reloaded = ProviderContainer();
+    addTearDown(reloaded.dispose);
+    await reloaded.read(advancedSettingsProvider.notifier).load();
+    expect(reloaded.read(advancedSettingsProvider).freeMode, isTrue);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(
+        (await SharedPreferences.getInstance())
+            .getBool(AdvancedSettings.kFreeMode),
+        isFalse);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  test('free mode is translated in all supported languages', () {
+    for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
+      final l = lookupAppLocalizations(Locale(language));
+      expect(l.freeMode, isNotEmpty);
+      expect(l.freeModePending, isNotEmpty);
+    }
+  });
+
   for (final scenario in ['ready', 'absent', 'error']) {
     testWidgets('Cloudflare action reports $scenario correctly',
         (tester) async {
@@ -95,6 +146,8 @@ void main() {
       final action = find.text('Réinitialiser la session Cloudflare');
       await tester.scrollUntilVisible(action, 250,
           scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(action);
+      await tester.pumpAndSettle();
       if (scenario == 'ready') {
         final tile =
             find.ancestor(of: action, matching: find.byType(TvFocus)).first;

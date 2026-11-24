@@ -36,11 +36,7 @@ void main() {
                 onNext: () => next++,
                 onTogglePlayPause: () => playPause++,
                 streamDetails: FooterStreamDetails(
-                  controller: controller,
-                  mediaKey: 'live',
-                  isLive: true,
-                  onOpened: () {},
-                  onClosed: () {},
+                  onPressed: () {},
                 ),
                 onToggleNightFocus: () {},
               ),

@@ -8,6 +8,7 @@ import 'package:orbit_3d_flutter/features/browse/browse_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/movie_compact.dart';
 import 'package:orbit_3d_flutter/models/series_compact.dart';
+import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
@@ -27,6 +28,45 @@ class _Filters extends VodCategoryFilterNotifier {
 }
 
 void main() {
+  testWidgets('ranking details remain available without subscription notice',
+      (tester) async {
+    tester.view.physicalSize = const Size(960, 540);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        preferencesProvider.overrideWith(_Preferences.new),
+        flixPatrolMoviesProvider.overrideWith((ref) async => const [
+              TmdbRankEntry(
+                tmdbId: 1,
+                title: 'Unmatched title',
+                posterPath: '',
+                overview: 'A sample synopsis.',
+              ),
+            ]),
+        flixPatrolTvProvider.overrideWith((ref) async => []),
+        moviesProvider.overrideWith((ref) async => []),
+      ],
+      child: const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: RankingsView()),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Unmatched title'));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(BottomSheet);
+    expect(find.descendant(of: sheet, matching: find.text('Unmatched title')),
+        findsOneWidget);
+    expect(find.descendant(of: sheet, matching: find.text('A sample synopsis.')),
+        findsOneWidget);
+    expect(find.textContaining('active subscription'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('compact movie and series retain age and new badges',
       (tester) async {
     final now = DateTime.now();

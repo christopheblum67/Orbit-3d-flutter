@@ -10,6 +10,100 @@ import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final language in ['en', 'ar']) {
+    testWidgets('engine grid follows horizontal D-pad direction in $language',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          locale: Locale(language),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showPlayerEngineConfigSheet(context),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(PlayerEngineConfigSheet)).width,
+          lessThanOrEqualTo(600));
+      final grid = tester.getRect(find.byKey(const ValueKey('engine-grid')));
+      final options =
+          tester.getRect(find.byKey(const ValueKey('engine-side-options')));
+      expect(
+          language == 'ar'
+              ? options.right <= grid.left
+              : grid.right <= options.left,
+          isTrue);
+      final dropdowns = find.byType(DropdownButton<PlayerEngine>);
+      final live = tester.widget<DropdownButton<PlayerEngine>>(dropdowns.at(0));
+      final vod = tester.widget<DropdownButton<PlayerEngine>>(dropdowns.at(2));
+      expect(tester.getSize(dropdowns.first).width, lessThanOrEqualTo(132));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(live.focusNode!.hasFocus, isTrue);
+      BoxDecoration haloFor(Finder child) {
+        final halos = tester.widgetList<AnimatedContainer>(find.ancestor(
+          of: child,
+          matching: find.byType(AnimatedContainer),
+        ));
+        return halos
+            .map((halo) => halo.decoration)
+            .whereType<BoxDecoration>()
+            .firstWhere((decoration) => decoration.boxShadow != null);
+      }
+
+      expect(haloFor(dropdowns.first).boxShadow, isNotEmpty);
+      await tester.sendKeyEvent(language == 'ar'
+          ? LogicalKeyboardKey.arrowLeft
+          : LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(vod.focusNode!.hasFocus, isTrue);
+      await tester.sendKeyEvent(language == 'ar'
+          ? LogicalKeyboardKey.arrowLeft
+          : LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      final checkbox = find.byType(CheckboxListTile).first;
+      final checkboxFocus = Focus.of(tester.element(find
+          .ancestor(
+            of: checkbox,
+            matching: find.byType(Focus),
+          )
+          .first));
+      expect(checkboxFocus.hasFocus, isTrue);
+      expect(haloFor(checkbox).boxShadow, isNotEmpty);
+      await tester.sendKeyEvent(language == 'ar'
+          ? LogicalKeyboardKey.arrowRight
+          : LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(
+          tester
+              .widget<DropdownButton<PlayerEngine>>(dropdowns.at(3))
+              .focusNode!
+              .hasFocus,
+          isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(vod.focusNode!.hasFocus, isTrue);
+      await tester.sendKeyEvent(language == 'ar'
+          ? LogicalKeyboardKey.arrowRight
+          : LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(live.focusNode!.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
     testWidgets('merged player options fit in $language', (tester) async {
       SharedPreferences.setMockInitialValues({});
@@ -37,6 +131,22 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       final l = lookupAppLocalizations(Locale(language));
+      final live =
+          tester.getRect(find.byKey(const ValueKey('engine-type-live')));
+      final vod = tester.getRect(find.byKey(const ValueKey('engine-type-vod')));
+      final series =
+          tester.getRect(find.byKey(const ValueKey('engine-type-series')));
+      final replay =
+          tester.getRect(find.byKey(const ValueKey('engine-type-replay')));
+      final grid = tester.getRect(find.byKey(const ValueKey('engine-grid')));
+      final options =
+          tester.getRect(find.byKey(const ValueKey('engine-side-options')));
+      expect(options.top, greaterThanOrEqualTo(grid.bottom));
+      expect(live.top, vod.top);
+      expect(series.top, replay.top);
+      expect(series.top, greaterThan(live.top));
+      expect(language == 'ar' ? vod.right <= live.left : live.right <= vod.left,
+          isTrue);
       expect(find.text(l.engineSubtitleDefault), findsOneWidget);
       expect(find.text(l.engineSubtitleForced), findsOneWidget);
       expect(find.text(l.engineSubtitleDisabled), findsOneWidget);
@@ -117,7 +227,12 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     expect(find.text('Playback engines'), findsOneWidget);
+    expect(find.text('ExoPlayer'), findsWidgets);
+    await tester.tap(find.byType(DropdownButton<PlayerEngine>).first);
+    await tester.pumpAndSettle();
     expect(find.text('ExoPlayer (Internal)'), findsWidgets);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
     expect(find.text('Movie and series subtitles'), findsOneWidget);
   });
 
@@ -194,7 +309,7 @@ void main() {
     await tester.pumpAndSettle();
     final sheetHeight =
         tester.getSize(find.byType(PlayerEngineConfigSheet)).height;
-    expect(sheetHeight, closeTo(480 * 0.90, 0.1));
+    expect(sheetHeight, closeTo(480 * 0.78, 0.1));
     final engines = find.byType(DropdownButton<PlayerEngine>);
     final checkboxNodes = [
       for (final checkbox

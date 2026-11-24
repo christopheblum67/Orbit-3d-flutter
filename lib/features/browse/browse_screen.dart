@@ -1361,28 +1361,6 @@ class _RankEntrySheet extends StatelessWidget {
                       ?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
                 ),
               ],
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: scheme.secondary),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        l.browseNotInSubscription,
-                        style: textTheme.bodySmall
-                            ?.copyWith(color: scheme.onSecondaryContainer),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
-import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/player_overlay_decoration.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/time_progress_bar.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -26,11 +26,7 @@ class ContentFooterBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         child: Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 10, 10),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
+          decoration: playerOverlayDecoration(),
           child: child,
         ),
       ),
@@ -535,26 +531,14 @@ class VodFooterBar extends ConsumerWidget {
   }
 }
 
-/// Icône ⚙️ de la footerbar : ouvre le panneau « Détails du flux » (pistes
-/// audio / qualité vidéo / sous-titres).
-///
-/// Tant que la sous-fenêtre est ouverte on gèle le timer d'auto-masquage (via
-/// [onOpened]) et on le relance à la fermeture ([onClosed]).
+/// Icône de configuration du flux dans la barre de lecture.
 class FooterStreamDetails extends StatelessWidget {
   const FooterStreamDetails({
     super.key,
-    required this.controller,
-    required this.mediaKey,
-    required this.isLive,
-    required this.onOpened,
-    required this.onClosed,
+    required this.onPressed,
   });
 
-  final VideoPlayerController controller;
-  final String? mediaKey;
-  final bool isLive;
-  final VoidCallback onOpened;
-  final VoidCallback onClosed;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -565,16 +549,7 @@ class FooterStreamDetails extends StatelessWidget {
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
       style: _fbFocusStyle(Colors.white),
-      onPressed: () async {
-        onOpened();
-        await showStreamDetailsSheet(
-          context,
-          controller,
-          mediaKey ?? '',
-          isLive: isLive,
-        );
-        if (context.mounted) onClosed();
-      },
+      onPressed: onPressed,
       icon: const Icon(Icons.settings_rounded, size: 22),
     );
   }
