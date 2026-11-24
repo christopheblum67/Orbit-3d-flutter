@@ -539,9 +539,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get homeChangeSubscription => 'تغيير الاشتراك';
 
   @override
-  String get homeManageSubscription => 'إدارة الاشتراك';
-
-  @override
   String get homeNoSubscription => 'لا يوجد اشتراك';
 
   @override
@@ -2925,7 +2922,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get later => 'لاحقاً';
 
   @override
-  String get legalNotice => 'اقرأني · إشعار قانوني';
+  String get legalNotice => 'الإشعار القانوني / التواصل';
 
   @override
   String get contactTeamTitle => 'تواصل مع الفريق';

@@ -14,14 +14,13 @@
 ///
 /// `List.sort` (quicksort dual-pivot, en place) n'est pas stable : deux
 /// contenus au score égal s'inverseraient d'un build à l'autre selon l'ordre
-/// initial. L'égalité est donc départagée par titre croissant — le résultat
-/// reste identique quel que soit l'ordre d'entrée.
+/// initial. L'égalité est départagée par la qualité, puis par titre croissant.
 ///
 /// ## Sens
 ///
 /// `descending` (défaut) classe du plus affin au moins affin ; `false` classe du
-/// moins affin au plus affin (mode « affinité croissante »). Dans les deux cas,
-/// l'égalité est départagée par titre croissant.
+/// moins affin au plus affin (mode « affinité croissante »). La qualité reste
+/// décroissante dans les deux sens.
 ///
 /// ## La logique corrective est préservée, pas dupliquée
 ///
@@ -35,16 +34,34 @@ List<T> sortByAffinityDesc<T>(
   List<T> items, {
   required double Function(T) score,
   required String Function(T) title,
+  double Function(T)? quality,
   bool descending = true,
 }) {
-  final keyed = <(T, double)>[];
+  final keyed = <_AffinitySortEntry<T>>[];
   for (var i = 0; i < items.length; i++) {
-    keyed.add((items[i], score(items[i])));
+    keyed.add(_AffinitySortEntry(items[i], score(items[i])));
   }
   keyed.sort((a, b) {
-    final c = descending ? b.$2.compareTo(a.$2) : a.$2.compareTo(b.$2);
+    final c = descending
+        ? b.score.compareTo(a.score)
+        : a.score.compareTo(b.score);
     if (c != 0) return c;
-    return title(a.$1).toLowerCase().compareTo(title(b.$1).toLowerCase());
+    if (quality != null) {
+      final qualityOrder = b.quality(quality).compareTo(a.quality(quality));
+      if (qualityOrder != 0) return qualityOrder;
+    }
+    return title(a.item).toLowerCase().compareTo(title(b.item).toLowerCase());
   });
-  return [for (final e in keyed) e.$1];
+  return [for (final e in keyed) e.item];
+}
+
+class _AffinitySortEntry<T> {
+  _AffinitySortEntry(this.item, this.score);
+
+  final T item;
+  final double score;
+  double? _quality;
+
+  double quality(double Function(T) calculate) =>
+      _quality ??= calculate(item);
 }

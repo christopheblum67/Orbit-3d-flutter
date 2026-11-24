@@ -37,6 +37,14 @@ class _TestPreferences extends PreferencesNotifier {
   UserPreferences build() => const UserPreferences();
 }
 
+class _SortRevision extends Notifier<int> {
+  @override
+  int build() => 0;
+  void update() => state++;
+}
+
+final _sortRevisionProvider = NotifierProvider<_SortRevision, int>(_SortRevision.new);
+
 class _MemoryFavorites extends FavoritesService {
   final entries = <String, FavoriteEntry>{};
 
@@ -69,12 +77,62 @@ void main() {
   );
   final other = profile.copyWith(id: 'two', firstName: 'Camille');
 
+  testWidgets('keeps focus on the same recommendation after reranking',
+      (tester) async {
+    final first = ScoredReco(
+      Recommendation.fromMetadata(
+        kind: RecommendationKind.movie, id: 'a', title: 'A',
+      ),
+      70, 0, 0, affinity: .7,
+    );
+    final second = ScoredReco(
+      Recommendation.fromMetadata(
+        kind: RecommendationKind.movie, id: 'b', title: 'B',
+      ),
+      70, 0, 0, affinity: .7,
+    );
+    final container = ProviderContainer(overrides: [
+      preferencesProvider.overrideWith(_TestPreferences.new),
+      currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
+      matchmakingTabProvider.overrideWith((ref, id) async {
+        final revision = ref.watch(_sortRevisionProvider);
+        return (
+          movies: revision == 0 ? [first, second] : [second, first],
+          series: <ScoredReco>[],
+        );
+      }),
+    ]);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: MatchmakingTab(kind: RecommendationKind.movie)),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final card = find.byWidgetPredicate(
+      (widget) => widget is MediaCard && widget.title == 'B',
+    );
+    Focus.of(tester.element(card)).requestFocus();
+    await tester.pumpAndSettle();
+    final focused = FocusManager.instance.primaryFocus;
+    container.read(_sortRevisionProvider.notifier).update();
+    await tester.pumpAndSettle();
+    expect(tester.widgetList<MediaCard>(find.byType(MediaCard)).map((c) => c.title),
+        ['B', 'A']);
+    expect(FocusManager.instance.primaryFocus, same(focused));
+  });
+
   testWidgets('les onglets de recommandations suivent la langue',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
+          affinityBackgroundEnrichmentProvider.overrideWith((ref) async {}),
           matchmakingTabProvider.overrideWith((ref, id) async =>
               (movies: <ScoredReco>[], series: <ScoredReco>[])),
         ],
@@ -91,6 +149,57 @@ void main() {
     expect(find.widgetWithText(Tab, 'Series'), findsOneWidget);
     expect(find.text('Affinity ↓'), findsOneWidget);
     expect(find.byTooltip('Sort'), findsOneWidget);
+  });
+
+  testWidgets('mode buttons highlight D-pad focus independently of selection',
+      (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
+        profilesProvider.overrideWith((ref) async => [profile, other]),
+        matchmakingTabProvider.overrideWith((ref, id) async =>
+            (movies: <ScoredReco>[], series: <ScoredReco>[])),
+      ],
+      child: const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: MatchmakingTab(kind: RecommendationKind.movie)),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final forYou = find.text('For You');
+    final group = find.text('Group');
+    TextButton button(Finder label) => tester.widget<TextButton>(
+          find.ancestor(of: label, matching: find.byType(TextButton)).first,
+        );
+    Color? background(Finder label) => button(label)
+        .style!
+        .backgroundColor!
+        .resolve(button(label).statesController!.value);
+    Color? foreground(Finder label) => button(label)
+        .style!
+        .foregroundColor!
+        .resolve(button(label).statesController!.value);
+
+    Focus.of(tester.element(forYou)).requestFocus();
+    await tester.pumpAndSettle();
+    expect(background(forYou), const Color(0xFF1565C0));
+    expect(foreground(forYou), Colors.white);
+    expect(background(group), isNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(background(group), const Color(0xFF1565C0));
+    expect(foreground(group), Colors.white);
+    expect(background(forYou), isNull);
+    final modeSwitcher = find.byWidgetPredicate((w) => w is SegmentedButton);
+    final selectedBefore =
+        tester.widget<SegmentedButton>(modeSwitcher).selected;
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SegmentedButton>(modeSwitcher).selected,
+        isNot(selectedBefore));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('refresh rebuilds solo and group recommendations from the D-pad',

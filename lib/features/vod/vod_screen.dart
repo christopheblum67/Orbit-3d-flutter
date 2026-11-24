@@ -17,6 +17,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -53,6 +54,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   int _dbFavCount = 0;
   int _dbRecentCount = 0;
   Timer? _queryDebounce;
+  Timer? _affinitySortDebounce;
+  int _affinityGenreRevision = 0;
+  final Map<MovieGenreQuery, String> _resolvedGenres = {};
   String _dbQuery = '';
 
   @override
@@ -68,10 +72,22 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   @override
   void dispose() {
     _queryDebounce?.cancel();
+    _affinitySortDebounce?.cancel();
     _pager?.invalidate();
     _dbScroll.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onGenreResolved(MovieGenreQuery query, String genre) {
+    if (_resolvedGenres[query] == genre) return;
+    _resolvedGenres[query] = genre;
+    if (_selectedSortMode != SortMode.affinity &&
+        _selectedSortMode != SortMode.affinityAsc) return;
+    _affinitySortDebounce ??= Timer(const Duration(milliseconds: 300), () {
+      _affinitySortDebounce = null;
+      if (mounted) setState(() => _affinityGenreRevision++);
+    });
   }
 
   /// Tri SQL équivalent, ou `null` quand le mode exige le chemin mémoire
@@ -273,11 +289,10 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   /// que la formule corrige déjà via ses alias canoniques (« Horreur, Mystère,
   /// … »).
   ///
-  /// Sans profil (ou sans genres favoris) l'affinité n'a aucun sens : on rend la
-  /// liste telle quelle plutôt que de dégrader en tri par note.
+  /// Sans profil, aucune affinité n'est affichée.
   List<Movie> _sortByAffinity(List<Movie> source) {
     final scorer = ref.read(profileAffinityScorerProvider);
-    if (scorer == null || scorer.favoriteGenres.isEmpty) return source;
+    if (scorer == null) return source;
     final enrichments = ref.read(vodGridEnrichmentsProvider).value ??
         const <String, TmdbRankEntry>{};
     // Lecture ONCE du service (et non par film) : le peek sur 100 000 films ne
@@ -290,10 +305,17 @@ class _VodScreenState extends ConsumerState<VodScreen> {
       source,
       descending: descending,
       score: (m) {
-        final realGenre = _realGenreOf(tmdb, m, enrichments);
+        final realGenre = scorer.favoriteGenres.isEmpty
+            ? ''
+            : _realGenreOf(tmdb, m, enrichments);
         final scoring = realGenre.isNotEmpty ? m.copyWith(genre: realGenre) : m;
         return scorer.percentForMovie(scoring).toDouble();
       },
+      quality: (m) => scorer.qualityFor(
+        Recommendation(kind: RecommendationKind.movie, movie: m),
+        cached: tmdb.peekMovieLight(m.title, year: m.year > 0 ? m.year : null) ??
+            enrichments[m.id],
+      ),
       title: (m) => m.title,
     );
   }
@@ -309,6 +331,13 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     Movie m,
     Map<String, TmdbRankEntry> enrichments,
   ) {
+    final resolved = _resolvedGenres[MovieGenreQuery(
+      id: m.id,
+      title: m.title,
+      year: m.year,
+      catalogGenre: m.genre,
+    )];
+    if (resolved != null) return resolved;
     final peek = tmdb
             .peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
             ?.genreNames ??
@@ -321,9 +350,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   ///
   /// Pour l'affinité, l'ordre dépend du profil courant (genres favoris, favoris,
   /// contenus vus, titres TMDB) : la clé embarque donc une signature de ce
-  /// contexte. Les `hashCode` de `Set`/`List` en Dart sont calculés sur le
-  /// contenu, ils changent dès que favoris ou historique évoluent — le cache du
-  /// pipeline est alors invalidé et l'ordre recalculé.
+  /// contexte et la révision des genres résolus.
   String _pipelineSortKey(SortMode mode) {
     if (mode != SortMode.affinity && mode != SortMode.affinityAsc) {
       return mode.name;
@@ -333,7 +360,11 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     return '${mode.name}|${scorer.favoriteGenres.join('\u0001')}'
         '|${scorer.favoriteIds.hashCode}'
         '|${scorer.seenIds.hashCode}'
-        '|${scorer.tmdbTitles.hashCode}';
+        '|${scorer.tmdbTitles.hashCode}'
+        '|${identityHashCode(scorer.rankingGenres)}'
+        '|${identityHashCode(scorer.rankingMetadata)}'
+        '|${identityHashCode(ref.read(vodGridEnrichmentsProvider).value)}'
+        '|$_affinityGenreRevision';
   }
 
   static SortMode _sortModeFrom(String name) {
@@ -528,6 +559,16 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 )))
                 .value ??
             const CategoryChanges();
+    final tmdb = affinity == null || affinity.favoriteGenres.isEmpty
+        ? null
+        : ref.read(tmdbAffinityServiceProvider);
+    final isAffinitySort = _selectedSortMode == SortMode.affinity ||
+        _selectedSortMode == SortMode.affinityAsc;
+    final indexById = isAffinitySort
+        ? <String, int>{
+            for (var i = 0; i < visibleMovies.length; i++) visibleMovies[i].id: i,
+          }
+        : null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -604,12 +645,17 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                               childAspectRatio: 0.55,
                             ),
                             itemCount: visibleMovies.length,
+                            findChildIndexCallback: indexById == null
+                                ? null
+                                : (key) => key is ValueKey<String>
+                                    ? indexById[key.value]
+                                    : null,
                             itemBuilder: (context, index) {
                               final movie = visibleMovies[index];
                               return _VodTile(
-                                key: scrollController == null
-                                    ? null
-                                    : ValueKey(movie.id),
+                                key: isAffinitySort || scrollController != null
+                                    ? ValueKey(movie.id)
+                                    : null,
                                 movie: movie,
                                 highlightTitle: changes.newIds.contains(
                                   movieChangeId(
@@ -620,6 +666,10 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                 ),
                                 enrichment: enrichments[movie.id],
                                 affinity: affinity,
+                                cachedGenre: tmdb == null
+                                    ? ''
+                                    : _realGenreOf(tmdb, movie, enrichments),
+                                onGenreResolved: _onGenreResolved,
                               );
                             },
                           ),
@@ -732,27 +782,32 @@ class _VodTile extends ConsumerWidget {
     required this.enrichment,
     required this.affinity,
     required this.highlightTitle,
+    required this.cachedGenre,
+    required this.onGenreResolved,
   });
 
   final Movie movie;
   final TmdbRankEntry? enrichment;
   final ProfileAffinityScorer? affinity;
   final bool highlightTitle;
+  final String cachedGenre;
+  final void Function(MovieGenreQuery, String) onGenreResolved;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final realGenre = ref
-        .watch(
-          movieRealGenreProvider(
-            MovieGenreQuery(
-              id: movie.id,
-              title: movie.title,
-              year: movie.year,
-              catalogGenre: movie.genre,
-            ),
-          ),
-        )
-        .value;
+    final query = MovieGenreQuery(
+      id: movie.id,
+      title: movie.title,
+      year: movie.year,
+      catalogGenre: movie.genre,
+    );
+    final genreProvider = movieRealGenreProvider(query);
+    ref.listen(genreProvider, (previous, next) {
+      final genre = next.value;
+      if (genre != null) onGenreResolved(query, genre);
+    });
+    final realGenre = ref.watch(genreProvider).value ??
+        (cachedGenre.isNotEmpty ? cachedGenre : null);
     final scoringMovie = (realGenre != null && realGenre != movie.genre)
         ? movie.copyWith(genre: realGenre)
         : movie;

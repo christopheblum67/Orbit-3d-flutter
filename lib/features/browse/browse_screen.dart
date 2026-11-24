@@ -269,23 +269,31 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     required List<dynamic> allItems,
   }) {
     final l = AppLocalizations.of(context);
+    final scorer = ref.watch(profileAffinityScorerProvider);
     final List<dynamic> visible;
     if (_selectedSortMode == SortMode.affinity ||
         _selectedSortMode == SortMode.affinityAsc) {
       // Tri par affinité : on réutilise le score de la tuile (même tuile, même
       // logique corrective que Films/Séries), donc l'ordre et le badge sont
-      // forcément cohérents. Sans profil ni genres favoris, on garde l'ordre
-      // filtré plutôt que de dégrader.
-      final scorer = ref.read(profileAffinityScorerProvider);
-      if (scorer == null || scorer.favoriteGenres.isEmpty) {
+      // forcément cohérents. Sans profil, aucun badge n'est affiché.
+      if (scorer == null) {
         visible = items.take(kBrowseGridCap).toList();
       } else {
         final descending = _selectedSortMode != SortMode.affinityAsc;
+        final tmdb = ref.read(tmdbAffinityServiceProvider);
         final ordered = sortByAffinityDesc<dynamic>(
           items,
           descending: descending,
           score: (e) =>
               (_affinityPercentForWith(scorer, e, isSeries) ?? 0).toDouble(),
+          quality: (e) {
+            final reco = _recommendationFor(e, isSeries);
+            if (reco == null) return 6;
+            final cached = isSeries
+                ? tmdb.peekTvLight(reco.title, year: reco.year > 0 ? reco.year : null)
+                : tmdb.peekMovieLight(reco.title, year: reco.year > 0 ? reco.year : null);
+            return scorer.qualityFor(reco, cached: cached);
+          },
           title: _titleOf,
         );
         visible = ordered.take(kBrowseGridCap).toList();
@@ -347,6 +355,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
       ...visibleCategories,
     ];
 
+    final indexById = <String, int>{
+      for (var i = 0; i < visible.length; i++) visible[i].id as String: i,
+    };
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -408,9 +419,17 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                                 childAspectRatio: 0.55,
                               ),
                               delegate: SliverChildBuilderDelegate(
-                                (context, index) =>
-                                    _buildCard(visible[index], isSeries),
+                                (context, index) => _buildCard(
+                                  visible[index],
+                                  isSeries,
+                                  scorer,
+                                  key: ValueKey(visible[index].id as String),
+                                ),
                                 childCount: visible.length,
+                                findChildIndexCallback: (key) =>
+                                    key is ValueKey<String>
+                                        ? indexById[key.value]
+                                        : null,
                               ),
                             ),
                           ),
@@ -543,24 +562,23 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     return false;
   }
 
-  /// Affinité en pourcentage d'un élément de grille, quel que soit le modèle
-  /// (complet ou compact). `null` si aucun profil n'est actif.
-  int? _affinityPercentFor(dynamic item, bool isSeries) {
-    final scorer = ref.watch(profileAffinityScorerProvider);
-    if (scorer == null) return null;
-    return _affinityPercentForWith(scorer, item, isSeries);
-  }
-
-  /// Même calcul que [_affinityPercentFor] mais avec un scorer déjà résolu :
-  /// utilisé par le tri par affinité, qui ne peut pas rappeler `ref.watch` dans
-  /// son comparateur.
+  /// Même score pour le tri et les badges.
   int? _affinityPercentForWith(
     ProfileAffinityScorer scorer,
     dynamic item,
     bool isSeries,
   ) {
-    if (item is Movie) return scorer.percentForMovie(item);
-    if (item is Series) return scorer.percentForSeries(item);
+    final reco = _recommendationFor(item, isSeries);
+    return reco == null ? null : scorer.percentFor(reco);
+  }
+
+  Recommendation? _recommendationFor(dynamic item, bool isSeries) {
+    if (item is Movie) {
+      return Recommendation(kind: RecommendationKind.movie, movie: item);
+    }
+    if (item is Series) {
+      return Recommendation(kind: RecommendationKind.series, series: item);
+    }
     // Modèles compacts : on reconstruit un Recommendation à partir des seules
     // métadonnées présentes sur la tuile (titre / genre / note), ce qui donne
     // exactement le même calcul que le module matchmaking.
@@ -572,22 +590,28 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         : item is Series
             ? item.rating
             : (item as dynamic).rating as double;
-    return scorer.percentFor(
-      Recommendation.fromMetadata(
+    return Recommendation.fromMetadata(
         kind: isSeries ? RecommendationKind.series : RecommendationKind.movie,
+        id: item.id as String,
         title: title,
+        year: _yearOf(item),
         genre: _genreOf(item),
         rating: rawRating.toDouble(),
-      ),
     );
   }
 
-  Widget _buildCard(dynamic item, bool isSeries) {
+  Widget _buildCard(
+    dynamic item,
+    bool isSeries,
+    ProfileAffinityScorer? scorer, {
+    Key? key,
+  }) {
     final l = AppLocalizations.of(context);
     final type = isSeries ? ContentType.series : ContentType.vod;
     // Affinité matchmaking du profil courant, calculée sur le modèle complet
     // quand on l'a, sinon reconstruite à partir des métadonnées de la tuile.
-    final affinityPercent = _affinityPercentFor(item, isSeries);
+    final affinityPercent =
+        scorer == null ? null : _affinityPercentForWith(scorer, item, isSeries);
 
     void onOpen() {
       if (isSeries) {
@@ -641,6 +665,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     final isNew = _isNewOf(item);
 
     return TvFocus(
+      key: key,
       onActivate: onOpen,
       child: MediaCard(
         focusable: false,

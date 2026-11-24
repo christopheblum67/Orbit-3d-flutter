@@ -8,8 +8,10 @@ import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
+import android.webkit.CookieManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,6 +68,20 @@ class MainActivity : FlutterActivity() {
         UpdateChannel.register(flutterEngine, this)
         RestartChannel.register(flutterEngine, this)
         AppExitChannel.register(flutterEngine, this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "orbit/cloudflare_cookies")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getCookies" -> {
+                        val url = call.argument<String>("url")
+                        if (url == null) {
+                            result.error("invalid_url", "URL is required", null)
+                        } else {
+                            result.success(CookieManager.getInstance().getCookie(url))
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     /**

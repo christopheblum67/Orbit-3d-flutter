@@ -125,16 +125,36 @@ void main() {
   });
 
   group('profileAffinity', () {
-    test('genre du film entièrement couvert par un favori unique → ≈0,50', () {
+    test('un seul genre commun reste sous 80 %', () {
       final reco = Recommendation(
         kind: RecommendationKind.movie,
         movie: _movie('a', 'Aventure Alpha', 'Aventure', rating: 5),
       );
       // Un film mono-genre est plafonné (dénominateur mini 3) : un match
       // unique ne vaut pas un « coup de cœur ».
-      expect(profileAffinity(reco, ['Aventure']), closeTo(0.50, 0.02));
+      expect(profileAffinity(reco, ['Aventure']), closeTo(0.553, 0.001));
     });
 
+    test('la formule adoucie donne environ 73 % pour deux genres sur trois',
+        () {
+      final reco = Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie('a', 'Film', 'Action, Aventure, Horreur', rating: 7),
+      );
+      final score = profileAffinity(
+        reco,
+        ['Action', 'Aventure', 'Drame', 'Crime', 'Thriller', 'Fantastique'],
+      );
+      expect(score, closeTo(0.728, 0.001));
+    });
+
+    test('les scores restent bornés même avec des genres proches', () {
+      final reco = Recommendation(
+        kind: RecommendationKind.series,
+        series: _series('s', 'Série', 'Action, Action spéciale', rating: 9),
+      );
+      expect(profileAffinity(reco, ['Action']), inInclusiveRange(0.0, 1.0));
+    });
     test('film sans genre exploitable → repli sur le titre/la description', () {
       final reco = Recommendation(
         kind: RecommendationKind.movie,
@@ -215,6 +235,23 @@ void main() {
       );
       expect(profileAffinity(reco, ['fantasy']), greaterThan(0));
     });
+
+    test('les genres du profil correspondent aux libellés TMDB', () {
+      for (final (profileGenre, tmdbGenre) in [
+        ('Famille', 'Familial'),
+        ('Historique', 'Histoire'),
+        ('Policier', 'Crime'),
+        ('Suspense', 'Thriller'),
+        ('SF', 'Science-fiction'),
+        ('Comédie dramatique', 'Drame'),
+      ]) {
+        final reco = Recommendation(
+          kind: RecommendationKind.movie,
+          movie: _movie('a', 'Film', tmdbGenre),
+        );
+        expect(profileAffinity(reco, [profileGenre]), greaterThan(0));
+      }
+    });
   });
 
   group('GroupReco', () {
@@ -251,6 +288,35 @@ void main() {
     test('déjà vu → exclusion (affinité nulle)', () {
       final aff = profileAffinityWithSignals(reco, ['Action'], seenIds: {'pp'});
       expect(aff, 0.0);
+    });
+
+    test('sans genres favoris seul le score de note est utilisé', () {
+      final highlyRated = Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie('best', 'Film', 'Action', rating: 10),
+      );
+      for (final favorites in [
+        <String>[],
+        [' ', '']
+      ]) {
+        expect(
+          profileAffinityWithSignals(
+            highlyRated,
+            favorites,
+            tmdbTitles: {'film'},
+          ),
+          0.5,
+        );
+        expect(
+          profileAffinityWithSignals(
+            highlyRated,
+            favorites,
+            seenIds: {'best'},
+            tmdbTitles: {'film'},
+          ),
+          0.0,
+        );
+      }
     });
 
     test('titre présent dans TMDB recommandation → léger boost', () {

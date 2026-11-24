@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/browse/browse_screen.dart'
     show RankingsView;
@@ -8,6 +9,7 @@ import 'package:orbit_3d_flutter/features/matchmaking/widgets/matchmaking_tab.da
     show MatchmakingTab;
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
+import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 
 /// Ouvre un contenu recommandé (série → détail, film → lecteur).
 void openRecommendation(BuildContext context, Recommendation reco) {
@@ -70,6 +72,9 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(affinityBackgroundEnrichmentProvider, (previous, next) {
+      if (next.hasError) logDiag('Enrichissement des affinités indisponible.');
+    });
     final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(

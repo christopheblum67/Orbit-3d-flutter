@@ -1024,12 +1024,6 @@ abstract class AppLocalizations {
   /// **'Changer d’abonnement'**
   String get homeChangeSubscription;
 
-  /// No description provided for @homeManageSubscription.
-  ///
-  /// In fr, this message translates to:
-  /// **'Gestion Abonnement'**
-  String get homeManageSubscription;
-
   /// No description provided for @homeNoSubscription.
   ///
   /// In fr, this message translates to:
@@ -5263,7 +5257,7 @@ abstract class AppLocalizations {
   /// No description provided for @legalNotice.
   ///
   /// In fr, this message translates to:
-  /// **'Lisez-moi · Mentions légales'**
+  /// **'Mentions légales / Contact'**
   String get legalNotice;
 
   /// No description provided for @contactTeamTitle.

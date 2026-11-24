@@ -13,6 +13,7 @@ import 'package:orbit_3d_flutter/features/settings/widgets/sort_toolbar_buttons.
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/catalog_db_provider.dart';
 import 'package:orbit_3d_flutter/providers/category_change_provider.dart';
@@ -23,6 +24,7 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SeriesScreen extends ConsumerStatefulWidget {
@@ -47,6 +49,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   int _dbFavCount = 0;
   int _dbRecentCount = 0;
   Timer? _queryDebounce;
+  Timer? _affinitySortDebounce;
+  final Map<SeriesGenreQuery, String> _resolvedGenres = {};
   String _dbQuery = '';
 
   @override
@@ -62,10 +66,36 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   @override
   void dispose() {
     _queryDebounce?.cancel();
+    _affinitySortDebounce?.cancel();
     _pager?.invalidate();
     _dbScroll.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onGenreResolved(SeriesGenreQuery query, String genre) {
+    if (_resolvedGenres[query] == genre) return;
+    _resolvedGenres[query] = genre;
+    if (_selectedSortMode != SortMode.affinity &&
+        _selectedSortMode != SortMode.affinityAsc) return;
+    _affinitySortDebounce ??= Timer(const Duration(milliseconds: 300), () {
+      _affinitySortDebounce = null;
+      if (mounted) setState(() {});
+    });
+  }
+
+  String _realGenreOf(TmdbService tmdb, Series series) {
+    final resolved = _resolvedGenres[SeriesGenreQuery(
+      id: series.id,
+      title: series.title,
+      year: series.year,
+      catalogGenre: series.genre,
+    )];
+    if (resolved != null) return resolved;
+    return tmdb
+            .peekTvLight(series.title, year: series.year > 0 ? series.year : null)
+            ?.genreNames ??
+        '';
   }
 
   static CatalogSort? _dbSortFor(SortMode m) {
@@ -351,11 +381,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 // TMDB est lu **sans réseau** dans le cache Hive partagé (même source
                 // que le badge de tuile, écrit par `searchTvLight`) ; faute de cache,
                 // on part du genre catalogue, que la formule corrige déjà via ses
-                // alias canoniques (« Horreur, Mystère, … »). Sans profil ni genres
-                // favoris, l'affinité n'a pas de sens : on rend la liste filtrée
-                // telle quelle plutôt que de dégrader en tri par note.
+                // alias canoniques (« Horreur, Mystère, … »). Sans profil,
+                // aucun badge n'est affiché.
                 final scorer = ref.read(profileAffinityScorerProvider);
-                if (scorer == null || scorer.favoriteGenres.isEmpty) {
+                if (scorer == null) {
                   visibleSeries = queryFiltered;
                 } else {
                   final tmdb = ref.read(tmdbAffinityServiceProvider);
@@ -364,17 +393,20 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     queryFiltered,
                     descending: descending,
                     score: (s) {
-                      final realGenre = tmdb
-                              .peekTvLight(
-                                s.title,
-                                year: s.year > 0 ? s.year : null,
-                              )
-                              ?.genreNames ??
-                          '';
+                      final realGenre = scorer.favoriteGenres.isEmpty
+                          ? ''
+                          : _realGenreOf(tmdb, s);
                       final scoring =
                           realGenre.isNotEmpty ? s.withGenre(realGenre) : s;
                       return scorer.percentForSeries(scoring).toDouble();
                     },
+                    quality: (s) => scorer.qualityFor(
+                      Recommendation(kind: RecommendationKind.series, series: s),
+                      cached: tmdb.peekTvLight(
+                        s.title,
+                        year: s.year > 0 ? s.year : null,
+                      ),
+                    ),
                     title: (s) => s.title,
                   );
                 }
@@ -460,6 +492,16 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 )))
                 .value ??
             const CategoryChanges();
+    final tmdb = affinity == null || affinity.favoriteGenres.isEmpty
+        ? null
+        : ref.read(tmdbAffinityServiceProvider);
+    final isAffinitySort = _selectedSortMode == SortMode.affinity ||
+        _selectedSortMode == SortMode.affinityAsc;
+    final indexById = isAffinitySort
+        ? <String, int>{
+            for (var i = 0; i < visibleSeries.length; i++) visibleSeries[i].id: i,
+          }
+        : null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -587,18 +629,27 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                       }
 
                                       return _SeriesTile(
-                                        key: scrollController == null
-                                            ? null
-                                            : ValueKey(series.id),
+                                        key: isAffinitySort || scrollController != null
+                                            ? ValueKey(series.id)
+                                            : null,
                                         series: series,
                                         highlightTitle:
                                             changes.newIds.contains(series.id),
                                         affinity: affinity,
+                                        cachedGenre: tmdb == null
+                                            ? ''
+                                            : _realGenreOf(tmdb, series),
+                                        onGenreResolved: _onGenreResolved,
                                         onOpen: onOpen,
                                         onLongPress: onLongPress,
                                       );
                                     },
                                     childCount: visibleSeries.length,
+                                    findChildIndexCallback: indexById == null
+                                        ? null
+                                        : (key) => key is ValueKey<String>
+                                            ? indexById[key.value]
+                                            : null,
                                   ),
                                 ),
                               ),
@@ -643,6 +694,8 @@ class _SeriesTile extends ConsumerWidget {
     required this.onOpen,
     required this.onLongPress,
     required this.highlightTitle,
+    required this.cachedGenre,
+    required this.onGenreResolved,
   });
 
   final Series series;
@@ -650,21 +703,24 @@ class _SeriesTile extends ConsumerWidget {
   final VoidCallback onOpen;
   final VoidCallback onLongPress;
   final bool highlightTitle;
+  final String cachedGenre;
+  final void Function(SeriesGenreQuery, String) onGenreResolved;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final realGenre = ref
-        .watch(
-          seriesRealGenreProvider(
-            SeriesGenreQuery(
-              id: series.id,
-              title: series.title,
-              year: series.year,
-              catalogGenre: series.genre,
-            ),
-          ),
-        )
-        .value;
+    final query = SeriesGenreQuery(
+      id: series.id,
+      title: series.title,
+      year: series.year,
+      catalogGenre: series.genre,
+    );
+    final genreProvider = seriesRealGenreProvider(query);
+    ref.listen(genreProvider, (previous, next) {
+      final genre = next.value;
+      if (genre != null) onGenreResolved(query, genre);
+    });
+    final realGenre = ref.watch(genreProvider).value ??
+        (cachedGenre.isNotEmpty ? cachedGenre : null);
     final scoringSeries = (realGenre != null && realGenre != series.genre)
         ? Series(
             id: series.id,

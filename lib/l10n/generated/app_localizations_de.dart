@@ -562,9 +562,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get homeChangeSubscription => 'Abonnement wechseln';
 
   @override
-  String get homeManageSubscription => 'Abonnement verwalten';
-
-  @override
   String get homeNoSubscription => 'Kein Abo';
 
   @override
@@ -3026,7 +3023,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get later => 'Später';
 
   @override
-  String get legalNotice => 'Lies mich · Rechtlicher Hinweis';
+  String get legalNotice => 'Rechtliche Hinweise / Kontakt';
 
   @override
   String get contactTeamTitle => 'Team kontaktieren';

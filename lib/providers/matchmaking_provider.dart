@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -9,6 +12,7 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
+import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:collection/collection.dart';
 
 const int kMatchmakingLimit = 50;
@@ -27,6 +31,7 @@ class ScoredReco {
     this.favCount,
     this.avgRating, {
     this.affinity = 0,
+    this.quality = 6,
   });
 
   final Recommendation reco;
@@ -36,6 +41,7 @@ class ScoredReco {
 
   /// Affinité normalisée (0.0 → 1.0), renseignée pour les classements d'onglets.
   final double affinity;
+  final double quality;
 }
 
 /// Score un contenu (film ou série) par rapport aux genres favoris.
@@ -212,16 +218,23 @@ const Map<String, String> _genreAliases = {
   'science fiction': 'science fiction',
   'sci-fi': 'science fiction',
   'sci fi': 'science fiction',
+  'sf': 'science fiction',
   'aventure': 'adventure',
   'animation': 'animation',
   'comedie': 'comedy',
   'comédie': 'comedy',
+  'comédie dramatique': 'drama',
+  'comedie dramatique': 'drama',
   'crime': 'crime',
   'documentaire': 'documentary',
   'drame': 'drama',
   'familial': 'family',
+  'famille': 'family',
   'fantastique': 'fantasy',
   'historique': 'history',
+  'histoire': 'history',
+  'policier': 'crime',
+  'suspense': 'thriller',
   'musique': 'music',
   'mystere': 'mystery',
   'mystère': 'mystery',
@@ -262,6 +275,28 @@ final RegExp _kGenreSeparators = RegExp(r'[,/|&]');
 
 String _normalizeForMatch(String text) =>
     text.toLowerCase().replaceAll(_kMatchSeparators, ' ');
+
+final RegExp _wordCharacter = RegExp(r'[\p{L}\p{N}]', unicode: true);
+final Map<String, Set<String>> _genreTextAliases = () {
+  final aliases = <String, Set<String>>{};
+  for (final entry in _genreAliases.entries) {
+    (aliases[entry.value] ??= <String>{})
+        .add(_normalizeForMatch(entry.key));
+  }
+  return aliases;
+}();
+
+bool _containsGenreWord(String text, String word) {
+  var start = text.indexOf(word);
+  while (start >= 0) {
+    final end = start + word.length;
+    final left = start == 0 || !_wordCharacter.hasMatch(text[start - 1]);
+    final right = end == text.length || !_wordCharacter.hasMatch(text[end]);
+    if (left && right) return true;
+    start = text.indexOf(word, start + 1);
+  }
+  return false;
+}
 
 /// Vrai si [label] est — ou contient — un genre **reconnu**, plutôt qu'un simple
 /// nom de catégorie Xtream (« Récents », « Nouveautés », « Netflix », …).
@@ -335,7 +370,8 @@ Set<String> _favoriteTokens(List<String> favorites) {
 ///   profils très larges : 2 matchs sur 6 favoris ≠ 2 sur 2.
 ///
 /// La précision pèse 4× le rappel : « ce film me correspond » compte plus que
-/// « ce film couvre mes cases ». Bonus de note mineur (rating ≥ 5 ou ≥ 7).
+/// « ce film couvre mes cases ». Leur moyenne pondérée est adoucie par
+/// l'exposant 0,85 avant le bonus de note (rating ≥ 5 ou ≥ 7).
 /// Sans genres favoris : signal faible fondé sur la note uniquement.
 double profileAffinity(Recommendation reco, List<String> favorites) {
   if (favorites.isEmpty) {
@@ -354,20 +390,21 @@ double profileAffinity(Recommendation reco, List<String> favorites) {
     // Film sans genre exploitable : repli sur titre + description.
     final text =
         '${_normalizeForMatch(reco.title)} ${_normalizeForMatch(reco.description)}';
-    final touched = favTokens.where(text.contains).length;
+    final touched = favTokens.where((genre) {
+      final aliases = _genreTextAliases[genre] ?? {genre};
+      return aliases.any((alias) => _containsGenreWord(text, alias));
+    }).length;
     return ((touched / favTokens.length) * 0.5 + ratingBoost).clamp(0.0, 1.0);
   }
 
-  bool isFav(String filmGenre) => favTokens.any(
-        (f) => f == filmGenre || filmGenre.contains(f) || f.contains(filmGenre),
-      );
-
-  final matched = filmGenres.where(isFav).length;
+  final matched = filmGenres.where(favTokens.contains).length;
   final denominator = filmGenres.length < 3 ? 3 : filmGenres.length;
   final precision = matched / denominator;
   final recall = matched / favTokens.length;
 
-  return ((precision * 0.8) + (recall * 0.2) + ratingBoost).clamp(0.0, 1.0);
+  final genreRatio = (precision * 0.8) + (recall * 0.2);
+  final softened = math.pow(genreRatio, 0.85).toDouble().clamp(0.0, 1.0);
+  return (softened + ratingBoost).clamp(0.0, 1.0);
 }
 
 /// Affinité enrichie par signaux profils : favoris (+), déjà vues (exclusion)
@@ -385,7 +422,9 @@ double profileAffinityWithSignals(
   // liste est vidée après visionnage, ce n'est pas un signal de goût stable.
   // Le pourcentage ne dépend donc QUE des genres déclarés du profil.
   final normTitle = reco.title.trim().toLowerCase();
-  if (tmdbTitles.contains(normTitle)) a = (a + 0.08).clamp(0.0, 1.0);
+  if (_favoriteTokens(favorites).isNotEmpty && tmdbTitles.contains(normTitle)) {
+    a = (a + 0.08).clamp(0.0, 1.0);
+  }
   return a;
 }
 
@@ -425,10 +464,12 @@ class GroupReco {
   GroupReco({
     required this.reco,
     required this.affinities,
+    this.quality = 6,
   });
 
   final Recommendation reco;
   final List<double> affinities; // Une affinité par profil
+  final double quality;
 
   /// Affinité moyenne de tous les profils.
   double get combined => affinities.isEmpty
@@ -445,7 +486,7 @@ class GroupReco {
 
 /// Seuil au-delà duquel un contenu est considéré comme un « coup de cœur »
 /// pour l'ensemble du groupe et doit passer devant tout le reste.
-const double kStrongAffinityThreshold = 0.80;
+const double kStrongAffinityThreshold = 0.75;
 
 /// Classe une liste d'affinités pour faire remonter les « coups de cœur ».
 ///
@@ -458,7 +499,7 @@ const double kStrongAffinityThreshold = 0.80;
 /// contenu à 60 % : le classement ne traduisait plus du tout la force réelle
 /// du signal, alors que le badge affiché sur la tuile indiquait 95 %.
 List<ScoredReco> prioritizeStrongAffinity(List<ScoredReco> items) {
-  bool strong(ScoredReco e) => e.affinity >= kStrongAffinityThreshold;
+  bool strong(ScoredReco e) => e.affinity > kStrongAffinityThreshold;
 
   final strongs = items.where(strong).toList();
   final rest = items.where((e) => !strong(e)).toList();
@@ -473,7 +514,7 @@ List<ScoredReco> prioritizeStrongAffinity(List<ScoredReco> items) {
 /// reste produirait mécaniquement du contenu que la majorité du groupe
 /// n'aurait jamais choisi.
 List<GroupReco> prioritizeStrongGroupAffinity(List<GroupReco> items) {
-  bool strong(GroupReco e) => e.minAffinity >= kStrongAffinityThreshold;
+  bool strong(GroupReco e) => e.minAffinity > kStrongAffinityThreshold;
 
   final strongs = items.where(strong).toList();
   final rest = items.where((e) => !strong(e)).toList();
@@ -505,19 +546,20 @@ Set<String> _favoriteIdsOf(Ref ref, ContentType type) {
       .toSet();
 }
 
+final _matchmakingRankingProviders = [
+  flixPatrolMoviesProvider,
+  flixPatrolTvProvider,
+  flixPatrolTrendingMoviesProvider,
+  flixPatrolTrendingTvProvider,
+  flixPatrolTopRatedMoviesProvider,
+  flixPatrolTopRatedTvProvider,
+];
+
 /// Titres normalisés issus des classements TMDB (ex-FlixPatrol) ; sert de
 /// signal « recommandation » pour le boost d'affinité dans les onglets.
 final recommendationTitlesProvider = Provider<Set<String>>((ref) {
   final titles = <String>{};
-  final providers = [
-    flixPatrolMoviesProvider,
-    flixPatrolTvProvider,
-    flixPatrolTrendingMoviesProvider,
-    flixPatrolTrendingTvProvider,
-    flixPatrolTopRatedMoviesProvider,
-    flixPatrolTopRatedTvProvider,
-  ];
-  for (final p in providers) {
+  for (final p in _matchmakingRankingProviders) {
     final list = ref.watch(p).value ?? const <TmdbRankEntry>[];
     for (final e in list) {
       final t = _normTitle(e.title);
@@ -526,6 +568,203 @@ final recommendationTitlesProvider = Provider<Set<String>>((ref) {
   }
   return titles;
 });
+
+typedef RankingGenreKey = ({String title, int year, bool isTv});
+
+RankingGenreKey _metadataKey(String title, int year, bool isTv) =>
+    (title: _normTitle(title), year: year, isTv: isTv);
+
+/// Métadonnées vérifiées et recherches déjà tentées pendant cette session.
+class AffinityMetadataNotifier extends Notifier<Map<RankingGenreKey, TmdbRankEntry>> {
+  final Set<RankingGenreKey> _attempted = {};
+
+  @override
+  Map<RankingGenreKey, TmdbRankEntry> build() {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    _attempted.clear();
+    return const {};
+  }
+
+  bool wasAttempted(RankingGenreKey key) => _attempted.contains(key);
+
+  void markAttempted(RankingGenreKey key) => _attempted.add(key);
+
+  void addAll(Map<RankingGenreKey, TmdbRankEntry> entries) {
+    if (entries.isNotEmpty) state = {...state, ...entries};
+  }
+}
+
+final affinityMetadataProvider = NotifierProvider<AffinityMetadataNotifier,
+    Map<RankingGenreKey, TmdbRankEntry>>(AffinityMetadataNotifier.new);
+
+/// Métadonnées des classements et de l'enrichissement, sans identité ambiguë.
+final rankingMetadataProvider =
+    Provider<Map<RankingGenreKey, TmdbRankEntry>>((ref) {
+  final ids = <RankingGenreKey, int>{};
+  final entries = <RankingGenreKey, TmdbRankEntry>{};
+  final ambiguous = <RankingGenreKey>{};
+  void add(RankingGenreKey key, TmdbRankEntry entry) {
+    if (key.title.isEmpty || key.year <= 0 || entry.tmdbId <= 0 ||
+        ambiguous.contains(key)) return;
+    if (ids.containsKey(key) && ids[key] != entry.tmdbId) {
+      ambiguous.add(key);
+      entries.remove(key);
+      return;
+    }
+    ids[key] = entry.tmdbId;
+    final old = entries[key];
+    if (old == null ||
+        (old.genreNames.isEmpty && entry.genreNames.isNotEmpty) ||
+        (old.genreNames.isNotEmpty == entry.genreNames.isNotEmpty &&
+            entry.voteCount > old.voteCount)) {
+      entries[key] = entry;
+    }
+  }
+  for (final provider in _matchmakingRankingProviders) {
+    for (final entry in ref.watch(provider).value ?? const <TmdbRankEntry>[]) {
+      add(_metadataKey(entry.title, entry.year, entry.isTv), entry);
+    }
+  }
+  ref.watch(affinityMetadataProvider).forEach(add);
+  return entries;
+});
+
+final rankingGenresProvider = Provider<Map<RankingGenreKey, String>>((ref) {
+  return {
+    for (final item in ref.watch(rankingMetadataProvider).entries)
+      if (item.value.genreNames.isNotEmpty)
+        item.key: item.value.genreNames,
+  };
+});
+
+/// Une recherche prudente, étalée et limitée, uniquement pendant Matchmaking.
+final affinityBackgroundEnrichmentProvider = FutureProvider.autoDispose<void>((ref) async {
+  final profile = ref.watch(currentProfileProvider);
+  if (profile == null) return;
+  ref.watch(tmdbApiKeyOverrideProvider);
+  final tmdb = ref.watch(tmdbAffinityServiceProvider);
+  if (!tmdb.hasApiKey) return;
+  final movies = ref.watch(moviesProvider).value ?? const <Movie>[];
+  final series = ref.watch(seriesProvider).value ?? const <Series>[];
+  final filters = ref.watch(vodCategoryFilterProvider);
+
+  final store = ref.read(affinityMetadataProvider.notifier);
+  final known = ref.read(rankingMetadataProvider);
+  final selected = <({RankingGenreKey key, String title})>[];
+  final selectedSet = <RankingGenreKey>{};
+  void select(String title, int year, String genre, bool isTv) {
+    if (year <= 0 || isKnownGenreLabel(genre) ||
+        TmdbService.normalizeSearchTitle(title).isEmpty) return;
+    final key = _metadataKey(title, year, isTv);
+    if (store.wasAttempted(key) || known.containsKey(key) ||
+        !selectedSet.add(key)) return;
+    final cached = isTv
+        ? tmdb.peekTvLight(title, year: year)
+        : tmdb.peekMovieLight(title, year: year);
+    if (cached != null) return;
+    selected.add((key: key, title: title));
+  }
+
+  var scanned = 0;
+  for (final movie in movies) {
+    if (++scanned % _kYieldEvery == 0) {
+      await _yieldToUi();
+      if (!ref.mounted) return;
+    }
+    if (filters.hiddenVodCategoryIds.contains(movie.categoryId)) continue;
+    select(movie.title, movie.year, movie.genre, false);
+    if (selected.length >= 10) break;
+  }
+  final movieCount = selected.length;
+  for (final item in series) {
+    if (++scanned % _kYieldEvery == 0) {
+      await _yieldToUi();
+      if (!ref.mounted) return;
+    }
+    if (filters.hiddenSeriesCategoryIds.contains(item.categoryId)) continue;
+    select(item.title, item.year, item.genre, true);
+    if (selected.length - movieCount >= 10) break;
+  }
+
+  final pending = <RankingGenreKey, TmdbRankEntry>{};
+  await Future<void>.delayed(Duration.zero);
+  for (final item in selected) {
+    if (!ref.mounted) break;
+    final key = item.key;
+    store.markAttempted(key);
+    final entry = key.isTv
+        ? await tmdb.searchTvLightVerified(item.title, key.year)
+        : await tmdb.searchMovieLightVerified(item.title, key.year);
+    if (!ref.mounted) break;
+    if (entry != null && isMatchingAffinityMetadata(key, entry)) {
+      pending[key] = entry;
+    }
+    if (pending.length >= 10) {
+      if (ref.mounted) store.addAll(pending);
+      pending.clear();
+    }
+    if (ref.mounted) {
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+    }
+  }
+  store.addAll(pending);
+});
+
+bool isMatchingAffinityMetadata(RankingGenreKey key, TmdbRankEntry entry) =>
+    TmdbService.normalizeSearchTitle(key.title).isNotEmpty &&
+    entry.tmdbId > 0 &&
+    entry.year == key.year &&
+    entry.isTv == key.isTv &&
+    TmdbService.normalizeSearchTitle(key.title).toLowerCase() ==
+        TmdbService.normalizeSearchTitle(entry.title).toLowerCase();
+
+/// Note bayésienne neutre en l'absence de votes vérifiables.
+double affinityWeightedRating(TmdbRankEntry? entry) {
+  if (entry == null || entry.voteCount <= 0 ||
+      !entry.rating.isFinite || entry.rating <= 0 || entry.rating > 10) {
+    return 6;
+  }
+  const priorVotes = 50;
+  const priorRating = 6;
+  return (entry.voteCount * entry.rating + priorVotes * priorRating) /
+      (entry.voteCount + priorVotes);
+}
+
+double affinityQualityFor(
+  Recommendation reco,
+  Map<RankingGenreKey, TmdbRankEntry> metadata, {
+  TmdbRankEntry? cached,
+}) {
+  if (reco.year <= 0) return 6;
+  final key = _metadataKey(
+    reco.title, reco.year, reco.kind == RecommendationKind.series,
+  );
+  final ranked = metadata[key];
+  final verified = cached != null && isMatchingAffinityMetadata(key, cached)
+      ? cached
+      : null;
+  if (verified != null && ranked != null &&
+      verified.tmdbId != ranked.tmdbId) return 6;
+  final entry = verified == null
+      ? ranked
+      : ranked == null || verified.voteCount >= ranked.voteCount
+          ? verified
+          : ranked;
+  return affinityWeightedRating(entry);
+}
+
+Recommendation _withRankingGenre(
+  Recommendation reco,
+  Map<RankingGenreKey, String> genres,
+) {
+  if (reco.year <= 0 || isKnownGenreLabel(reco.genre)) return reco;
+  final key = (
+    title: _normTitle(reco.title),
+    year: reco.year,
+    isTv: reco.kind == RecommendationKind.series,
+  );
+  return recommendationWithRealGenre(reco, genres[key] ?? '');
+}
 
 /// Tri par affinité (à plat) pour une liste de recommandations d'un type donné.
 ///
@@ -551,11 +790,18 @@ Future<List<ScoredReco>> _rankByAffinity({
   Set<String> sessionFilters = const {},
   Set<String> hiddenCategories = const {},
   required int limit,
+  required double Function(Recommendation) qualityFor,
 }) async {
   int byAffinity(ScoredReco a, ScoredReco b) {
-    final c = b.affinity.compareTo(a.affinity);
+    final aStrong = a.affinity > kStrongAffinityThreshold;
+    final bStrong = b.affinity > kStrongAffinityThreshold;
+    if (aStrong != bStrong) return aStrong ? -1 : 1;
+    final c = b.score.compareTo(a.score);
     if (c != 0) return c;
-    return b.avgRating.compareTo(a.avgRating);
+    final quality = b.quality.compareTo(a.quality);
+    if (quality != 0) return quality;
+    final title = _normTitle(a.reco.title).compareTo(_normTitle(b.reco.title));
+    return title != 0 ? title : a.reco.id.compareTo(b.reco.id);
   }
 
   final top = <ScoredReco>[];
@@ -587,23 +833,31 @@ Future<List<ScoredReco>> _rankByAffinity({
     if (aff <= 0) continue;
     // Rejet rapide : le tas est plein et cet élément n'en fait pas mieux que
     // le pire. Evite l'allocation ET le tri.
-    if (top.length >= limit && aff <= top.last.affinity) continue;
-    top.add(
-      ScoredReco(
+    final percent = (aff * 100).round();
+    if (top.length >= limit) {
+      final last = top.last;
+      final strong = aff > kStrongAffinityThreshold;
+      final lastStrong = last.affinity > kStrongAffinityThreshold;
+      if ((!strong && lastStrong) ||
+          (strong == lastStrong && percent < last.score)) continue;
+    }
+    final entry = ScoredReco(
         r,
-        (aff * 100).round(),
+        percent,
         0,
         r.rating,
         affinity: aff,
-      ),
+        quality: qualityFor(r),
     );
-    if (top.length > limit) {
+    if (top.length >= limit && byAffinity(entry, top.last) >= 0) continue;
+    top.add(entry);
+    if (top.length >= limit) {
       top.sort(byAffinity);
-      top.removeLast();
+      if (top.length > limit) top.removeLast();
     }
   }
   top.sort(byAffinity);
-  // Les « coups de cœur » (> 80 %) passent devant tout le reste, sans
+  // Les « coups de cœur » (> 75 %) passent devant tout le reste, sans
   // modifier l'ordre relatif à l'intérieur de chaque groupe.
   return prioritizeStrongAffinity(top);
 }
@@ -633,16 +887,20 @@ class ProfileAffinityScorer {
     required this.favoriteIds,
     required this.seenIds,
     required this.tmdbTitles,
+    this.rankingGenres = const {},
+    this.rankingMetadata = const {},
   });
 
   final List<String> favoriteGenres;
   final Set<String> favoriteIds;
   final Set<String> seenIds;
   final Set<String> tmdbTitles;
+  final Map<RankingGenreKey, String> rankingGenres;
+  final Map<RankingGenreKey, TmdbRankEntry> rankingMetadata;
 
   /// Affinité en pourcentage (0-100), prête pour [MediaCard.matchPercent].
   int percentFor(Recommendation reco) => (profileAffinityWithSignals(
-            reco,
+            _withRankingGenre(reco, rankingGenres),
             favoriteGenres,
             favoriteIds: favoriteIds,
             seenIds: seenIds,
@@ -656,6 +914,9 @@ class ProfileAffinityScorer {
 
   int percentForSeries(Series s) =>
       percentFor(Recommendation(kind: RecommendationKind.series, series: s));
+
+  double qualityFor(Recommendation reco, {TmdbRankEntry? cached}) =>
+      affinityQualityFor(reco, rankingMetadata, cached: cached);
 }
 
 /// Contexte d'affinité du profil courant, ou null si aucun profil n'est actif.
@@ -678,6 +939,8 @@ final profileAffinityScorerProvider = Provider<ProfileAffinityScorer?>((ref) {
     favoriteIds: favoriteIds,
     seenIds: ref.watch(seenRecoIdsProvider(profile.id)),
     tmdbTitles: ref.watch(recommendationTitlesProvider),
+    rankingGenres: ref.watch(rankingGenresProvider),
+    rankingMetadata: ref.watch(rankingMetadataProvider),
   );
 });
 
@@ -896,6 +1159,8 @@ final matchmakingTabProvider = FutureProvider.autoDispose
     ...ref.watch(dismissedRecoIdsProvider(profileId)),
   };
   final tmdbTitles = ref.watch(recommendationTitlesProvider);
+  final rankingGenres = ref.watch(rankingGenresProvider);
+  final rankingMetadata = ref.watch(rankingMetadataProvider);
   // Catégories masquées par abonnement : le matchmaking ne doit pas proposer
   // du contenu que l'utilisateur a choisi de cacher.
   final categoryFilter = ref.watch(vodCategoryFilterProvider);
@@ -909,6 +1174,13 @@ final matchmakingTabProvider = FutureProvider.autoDispose
   // divergerait du badge de sa tuile. Le peek est court-circuité sans genres
   // favoris, cas où le score ne dépend pas du genre.
   final affinityTmdb = ref.watch(tmdbAffinityServiceProvider);
+  double qualityFor(Recommendation reco) => affinityQualityFor(
+        reco,
+        rankingMetadata,
+        cached: reco.kind == RecommendationKind.movie
+            ? affinityTmdb.peekMovieLight(reco.title, year: reco.year > 0 ? reco.year : null)
+            : affinityTmdb.peekTvLight(reco.title, year: reco.year > 0 ? reco.year : null),
+      );
   final useRealGenre = favoriteGenres.isNotEmpty;
   final favoriteMovieIds = _favoriteIdsOf(ref, ContentType.vod);
   final favoriteSeriesIds = _favoriteIdsOf(ref, ContentType.series);
@@ -920,9 +1192,12 @@ final matchmakingTabProvider = FutureProvider.autoDispose
             .peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
             ?.genreNames ??
         '';
-    return recommendationWithRealGenre(
-      Recommendation(kind: RecommendationKind.movie, movie: m),
-      real,
+    return _withRankingGenre(
+      recommendationWithRealGenre(
+        Recommendation(kind: RecommendationKind.movie, movie: m),
+        real,
+      ),
+      rankingGenres,
     );
   }
 
@@ -934,9 +1209,12 @@ final matchmakingTabProvider = FutureProvider.autoDispose
             .peekTvLight(s.title, year: s.year > 0 ? s.year : null)
             ?.genreNames ??
         '';
-    return recommendationWithRealGenre(
-      Recommendation(kind: RecommendationKind.series, series: s),
-      real,
+    return _withRankingGenre(
+      recommendationWithRealGenre(
+        Recommendation(kind: RecommendationKind.series, series: s),
+        real,
+      ),
+      rankingGenres,
     );
   }
 
@@ -950,6 +1228,7 @@ final matchmakingTabProvider = FutureProvider.autoDispose
     sessionFilters: sessionFilters,
     hiddenCategories: hiddenMovies,
     limit: kMatchmakingTabLimit,
+    qualityFor: qualityFor,
   );
 
   final scoredSeries = await _rankByAffinity(
@@ -961,6 +1240,7 @@ final matchmakingTabProvider = FutureProvider.autoDispose
     sessionFilters: sessionFilters,
     hiddenCategories: hiddenSeries,
     limit: kMatchmakingTabLimit,
+    qualityFor: qualityFor,
   );
 
   return (movies: scoredMovies, series: scoredSeries);
@@ -978,6 +1258,7 @@ class _GroupScoreContext {
     required this.tmdbTitles,
     required this.hiddenMovies,
     required this.hiddenSeries,
+    required this.qualityFor,
   });
 
   final List<UserProfile> profiles;
@@ -991,6 +1272,7 @@ class _GroupScoreContext {
   /// Catégories masquées par abonnement, séparées par type.
   final Set<String> hiddenMovies;
   final Set<String> hiddenSeries;
+  final double Function(Recommendation) qualityFor;
 }
 
 /// Score « groupe » borné : on ne conserve que les `limit` meilleures affinités
@@ -1007,9 +1289,15 @@ Future<({List<GroupReco> movies, List<GroupReco> series})> _computeGroupTab(
   required int limit,
 }) async {
   int byCombined(GroupReco a, GroupReco b) {
-    final c = b.combined.compareTo(a.combined);
+    final aStrong = a.minAffinity > kStrongAffinityThreshold;
+    final bStrong = b.minAffinity > kStrongAffinityThreshold;
+    if (aStrong != bStrong) return aStrong ? -1 : 1;
+    final c = (b.combined * 100).round().compareTo((a.combined * 100).round());
     if (c != 0) return c;
-    return b.reco.rating.compareTo(a.reco.rating);
+    final quality = b.quality.compareTo(a.quality);
+    if (quality != 0) return quality;
+    final title = _normTitle(a.reco.title).compareTo(_normTitle(b.reco.title));
+    return title != 0 ? title : a.reco.id.compareTo(b.reco.id);
   }
 
   final topMovies = <GroupReco>[];
@@ -1043,14 +1331,28 @@ Future<({List<GroupReco> movies, List<GroupReco> series})> _computeGroupTab(
     if (!anyPositive) return;
 
     final top = reco.kind == RecommendationKind.movie ? topMovies : topSeries;
-    final entry = GroupReco(reco: reco, affinities: affinities);
+    if (top.length >= limit) {
+      final minimum = affinities.reduce(math.min);
+      final combined = affinities.reduce((a, b) => a + b) / affinities.length;
+      final last = top.last;
+      final strong = minimum > kStrongAffinityThreshold;
+      final lastStrong = last.minAffinity > kStrongAffinityThreshold;
+      if ((!strong && lastStrong) ||
+          (strong == lastStrong &&
+              (combined * 100).round() < (last.combined * 100).round())) return;
+    }
+    final entry = GroupReco(
+      reco: reco,
+      affinities: affinities,
+      quality: ctx.qualityFor(reco),
+    );
     // Rejet rapide : le tas est plein et cet élément n'en fait pas mieux que
     // le pire. Evite l'allocation ET le tri.
-    if (top.length >= limit && entry.combined <= top.last.combined) return;
+    if (top.length >= limit && byCombined(entry, top.last) >= 0) return;
     top.add(entry);
-    if (top.length > limit) {
+    if (top.length >= limit) {
       top.sort(byCombined);
-      top.removeLast();
+      if (top.length > limit) top.removeLast();
     }
   }
 
@@ -1067,7 +1369,7 @@ Future<({List<GroupReco> movies, List<GroupReco> series})> _computeGroupTab(
   topMovies.sort(byCombined);
   topSeries.sort(byCombined);
   // Même priorisation que l'onglet simple : les contenus que TOUS les profils
-  // du groupe aiment (> 80 % pour le maillon faible) passent devant.
+  // du groupe aiment (> 75 % pour le maillon faible) passent devant.
   return (
     movies: prioritizeStrongGroupAffinity(topMovies),
     series: prioritizeStrongGroupAffinity(topSeries),
@@ -1109,6 +1411,8 @@ final matchmakingGroupTabProvider = FutureProvider.autoDispose
     allSeen.addAll(ref.watch(seenRecoIdsProvider(id)));
   }
   final tmdbTitles = ref.watch(recommendationTitlesProvider);
+  final rankingGenres = ref.watch(rankingGenresProvider);
+  final rankingMetadata = ref.watch(rankingMetadataProvider);
   // Alignement avec les grilles (voir [recommendationWithRealGenre]) : le mode
   // groupe réutilise lui aussi le vrai genre TMDB déjà résolu, sans réseau.
   final affinityTmdb = ref.watch(tmdbAffinityServiceProvider);
@@ -1126,6 +1430,13 @@ final matchmakingGroupTabProvider = FutureProvider.autoDispose
     tmdbTitles: tmdbTitles,
     hiddenMovies: categoryFilter.hiddenVodCategoryIds,
     hiddenSeries: categoryFilter.hiddenSeriesCategoryIds,
+    qualityFor: (reco) => affinityQualityFor(
+      reco,
+      rankingMetadata,
+      cached: reco.kind == RecommendationKind.movie
+          ? affinityTmdb.peekMovieLight(reco.title, year: reco.year > 0 ? reco.year : null)
+          : affinityTmdb.peekTvLight(reco.title, year: reco.year > 0 ? reco.year : null),
+    ),
   );
 
   // --- A partir d'ici, plus aucun acces a `ref`. ---
@@ -1151,27 +1462,31 @@ final matchmakingGroupTabProvider = FutureProvider.autoDispose
     var n = 0;
     for (final m in movies) {
       if (++n % _kYieldEvery == 0) await _yieldToUi();
-      moviesAligned.add(
-        movieWithRealGenre(
-          m,
+      final reco = _withRankingGenre(
+        recommendationWithRealGenre(
+          Recommendation(kind: RecommendationKind.movie, movie: m),
           affinityTmdb
                   .peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
                   ?.genreNames ??
               '',
         ),
+        rankingGenres,
       );
+      moviesAligned.add(reco.movie!);
     }
     for (final s in series) {
       if (++n % _kYieldEvery == 0) await _yieldToUi();
-      seriesAligned.add(
-        seriesWithRealGenre(
-          s,
+      final reco = _withRankingGenre(
+        recommendationWithRealGenre(
+          Recommendation(kind: RecommendationKind.series, series: s),
           affinityTmdb
                   .peekTvLight(s.title, year: s.year > 0 ? s.year : null)
                   ?.genreNames ??
               '',
         ),
+        rankingGenres,
       );
+      seriesAligned.add(reco.series!);
     }
   }
 

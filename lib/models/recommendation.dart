@@ -18,12 +18,13 @@ class Recommendation {
   /// Construit une recommandation à partir des seules métadonnées d'une tuile
   /// (modèles compacts), sans exiger un `Movie`/`Series` complet.
   ///
-  /// Le scoring d'affinité ne lit que le titre, le genre, la note et la
-  /// description : les identifiants de domaine restent nuls, donc `id`,
-  /// `posterUrl`… ne doivent pas être utilisés sur cette instance.
+  /// L'identifiant et l'année permettent aussi d'appliquer les signaux
+  /// d'historique et les genres des classements TMDB.
   factory Recommendation.fromMetadata({
     required RecommendationKind kind,
     required String title,
+    String id = '',
+    int year = 0,
     String genre = '',
     double rating = 0,
     String description = '',
@@ -32,11 +33,11 @@ class Recommendation {
         ? Recommendation(
             kind: kind,
             movie: Movie(
-              id: '',
+              id: id,
               title: title,
               description: description,
               posterUrl: '',
-              year: 0,
+              year: year,
               genre: genre,
               director: '',
               rating: rating,
@@ -47,11 +48,11 @@ class Recommendation {
         : Recommendation(
             kind: kind,
             series: Series(
-              id: '',
+              id: id,
               title: title,
               description: description,
               coverUrl: '',
-              year: 0,
+              year: year,
               genre: genre,
               director: '',
               rating: rating,

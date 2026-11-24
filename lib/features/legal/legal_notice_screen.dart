@@ -90,7 +90,7 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(l.legalNotice),
+        title: Text(l.contactLegal),
         leading: widget.firstLaunch ? null : BackButton(onPressed: _back),
       ),
       body: TvSafeArea(

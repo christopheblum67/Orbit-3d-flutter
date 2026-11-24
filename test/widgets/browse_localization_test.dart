@@ -16,6 +16,7 @@ import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
+import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 
 class _Preferences extends PreferencesNotifier {
   @override
@@ -27,7 +28,99 @@ class _Filters extends VodCategoryFilterNotifier {
   VodCategoryFilter build() => const VodCategoryFilter(subscriptionId: 'sub');
 }
 
+class _Tmdb implements TmdbService {
+  @override
+  TmdbRankEntry? peekMovieLight(String title, {int? year}) => null;
+  @override
+  TmdbRankEntry? peekTvLight(String title, {int? year}) => null;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
+  testWidgets('compact grids sort the displayed affinity in both directions',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const scorer = ProfileAffinityScorer(
+      favoriteGenres: [],
+      favoriteIds: {},
+      seenIds: {},
+      tmdbTitles: {},
+      rankingMetadata: {
+        (title: 'c', year: 2024, isTv: false): TmdbRankEntry(
+          tmdbId: 1, title: 'C', posterPath: '', year: 2024,
+          rating: 8, voteCount: 1000,
+        ),
+        (title: 'c', year: 2024, isTv: true): TmdbRankEntry(
+          tmdbId: 2, title: 'C', posterPath: '', year: 2024, isTv: true,
+          rating: 8, voteCount: 1000,
+        ),
+      },
+    );
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const BrowseScreen()),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        preferencesProvider.overrideWith(_Preferences.new),
+        vodCategoryFilterProvider.overrideWith(_Filters.new),
+        favoritesProvider.overrideWithBuild((ref, notifier) => {}),
+        recentlyWatchedProvider.overrideWithBuild((ref, notifier) => {}),
+        profileAffinityScorerProvider.overrideWith((ref) => scorer),
+        tmdbAffinityServiceProvider.overrideWithValue(_Tmdb()),
+        vodCategoriesProvider.overrideWith((ref) async => []),
+        seriesCategoriesProvider.overrideWith((ref) async => []),
+        moviesCompactProvider.overrideWith((ref) async => const [
+              MovieCompact(id: 'a', title: 'A', posterUrl: '', year: 2024,
+                  genre: '', rating: 2, categoryId: ''),
+              MovieCompact(id: 'b', title: 'B', posterUrl: '', year: 2024,
+                  genre: '', rating: 9, categoryId: ''),
+              MovieCompact(id: 'c', title: 'C', posterUrl: '', year: 2024,
+                  genre: '', rating: 9, categoryId: ''),
+            ]),
+        seriesCompactProvider.overrideWith((ref) async => const [
+              SeriesCompact(id: 'a', title: 'A', coverUrl: '', year: 2024,
+                  genre: '', rating: 2, categoryId: ''),
+              SeriesCompact(id: 'b', title: 'B', coverUrl: '', year: 2024,
+                  genre: '', rating: 9, categoryId: ''),
+              SeriesCompact(id: 'c', title: 'C', coverUrl: '', year: 2024,
+                  genre: '', rating: 9, categoryId: ''),
+            ]),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Sort'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('By affinity'));
+    await tester.pumpAndSettle();
+    List<MediaCard> cards() =>
+        tester.widgetList<MediaCard>(find.byType(MediaCard)).toList();
+    for (final isSeries in [false, true]) {
+      if (isSeries) {
+        await tester.tap(find.text('Series').first);
+        await tester.pumpAndSettle();
+      }
+      expect(cards().map((c) => c.title), ['C', 'B', 'A']);
+      expect(cards().first.matchPercent, greaterThan(cards().last.matchPercent!));
+      await tester.tap(find.byTooltip('Descending order'));
+      await tester.pumpAndSettle();
+      expect(cards().map((c) => c.title), ['A', 'C', 'B']);
+      expect(cards().first.matchPercent, lessThan(cards().last.matchPercent!));
+      await tester.tap(find.byTooltip('Ascending order'));
+      await tester.pumpAndSettle();
+    }
+  });
+
   testWidgets('ranking details remain available without subscription notice',
       (tester) async {
     tester.view.physicalSize = const Size(960, 540);

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/theme/app_theme.dart';
+import 'package:orbit_3d_flutter/core/widgets/home_clock.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
 import 'package:orbit_3d_flutter/features/home_shell.dart';
@@ -87,6 +88,7 @@ void main() {
                 name: 'Subscription',
                 type: SubscriptionType.xtream,
                 createdAt: DateTime(2020),
+                validUntil: DateTime.now().add(const Duration(days: 10)),
               )
             : null;
         final router = GoRouter(initialLocation: '/home', routes: [
@@ -101,6 +103,11 @@ void main() {
                 path: '/settings',
                 builder: (_, __) =>
                     const Scaffold(body: Text('Settings opened')),
+              ),
+              GoRoute(
+                path: '/subscriptions',
+                builder: (_, __) =>
+                    const Scaffold(body: Text('Subscriptions opened')),
               ),
             ],
           ),
@@ -147,6 +154,20 @@ void main() {
           of: find.byType(HomeScreen),
           matching: find.byTooltip('Update all data'),
         );
+        final status = find.text(
+          subscription == null ? 'No subscription' : 'Subscription',
+        );
+        final clock = find.byType(HomeClock);
+        expect(clock, findsOneWidget);
+        expect(tester.getTopLeft(clock).dx, 16);
+        expect(tester.getTopLeft(clock).dy, greaterThan(size.height / 2));
+        expect(tester.getTopLeft(clock).dx,
+            lessThan(tester.getTopLeft(status).dx));
+        expect(find.text('Manage subscription'), findsNothing);
+        expect(find.text('Gestion Abonnement'), findsNothing);
+        if (subscription != null) {
+          expect(find.text(subscription.validityLabel), findsOneWidget);
+        }
 
         await key(LogicalKeyboardKey.arrowDown);
         expect(focused(profileLabel), isTrue,
@@ -180,6 +201,22 @@ void main() {
         await key(LogicalKeyboardKey.arrowLeft);
         expect(FocusManager.instance.primaryFocus?.debugLabel,
             'Home subscription');
+        expect(focused(status), isTrue);
+        await key(LogicalKeyboardKey.select);
+        expect(find.text('Subscriptions opened'), findsOneWidget);
+        router.go('/home');
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(status);
+        await tester.pumpAndSettle();
+        await tester.tap(status);
+        await tester.pumpAndSettle();
+        expect(find.text('Subscriptions opened'), findsOneWidget);
+        router.go('/home');
+        await tester.pumpAndSettle();
+        await key(LogicalKeyboardKey.arrowDown);
+        await key(LogicalKeyboardKey.arrowLeft);
+        await key(LogicalKeyboardKey.arrowLeft);
+        expect(focused(status), isTrue);
         await key(LogicalKeyboardKey.arrowRight);
         expect(focused(update), isTrue);
         await key(LogicalKeyboardKey.arrowRight);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
+import 'package:meta/meta.dart';
 import 'package:orbit_3d_flutter/core/utils/json_retyping.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
@@ -354,6 +355,17 @@ class TmdbService {
   /// Une seule requête par film, mise en cache Hive (même TTL 24h).
   /// Utilisée pour pré-enrichir les cartes de la grille VOD en arrière-plan.
   Future<TmdbRankEntry?> searchMovieLight(String title, {int? year}) async {
+    return _searchMovieLight(title, year: year, verified: false);
+  }
+
+  Future<TmdbRankEntry?> searchMovieLightVerified(String title, int year) =>
+      _searchMovieLight(title, year: year, verified: true);
+
+  Future<TmdbRankEntry?> _searchMovieLight(
+    String title, {
+    int? year,
+    required bool verified,
+  }) async {
     if (!hasApiKey) return null;
 
     final cacheKey = _cacheKey('grid', title, year ?? 0);
@@ -362,7 +374,11 @@ class TmdbService {
       (d) => TmdbRankEntry.fromMovieJson(d),
       ttl: _lightCacheTtl,
     );
-    if (cached != null) return cached;
+    if (cached != null) {
+      return !verified || _matchesLightIdentity(cached, title, year)
+          ? cached
+          : null;
+    }
 
     await _waitForRateLimit();
 
@@ -383,12 +399,14 @@ class TmdbService {
           await _setCache(cacheKey, const <String, dynamic>{});
           return null;
         }
-        final entry = TmdbRankEntry.fromMovieJson(
-          Map<String, dynamic>.from(results.first as Map),
-        );
+        final raw = verified
+            ? selectVerifiedLightResult(results, title, year, isTv: false)
+            : Map<String, dynamic>.from(results.first as Map);
+        if (raw == null) return null;
+        final entry = TmdbRankEntry.fromMovieJson(raw);
         await _setCache(
           cacheKey,
-          Map<String, dynamic>.from(results.first as Map),
+          raw,
         );
         return entry;
       },
@@ -396,6 +414,34 @@ class TmdbService {
       fallbackValue: null,
     );
     return result.valueOrNull;
+  }
+
+  static bool _matchesLightIdentity(TmdbRankEntry entry, String title, int? year) {
+    final normalized = normalizeSearchTitle(title).toLowerCase();
+    return normalized.isNotEmpty &&
+        year != null &&
+        year > 0 &&
+        entry.year == year &&
+        entry.tmdbId > 0 &&
+        normalizeSearchTitle(entry.title).toLowerCase() == normalized;
+  }
+
+  @visibleForTesting
+  static Map<String, dynamic>? selectVerifiedLightResult(
+    List<dynamic> results,
+    String title,
+    int? year, {
+    required bool isTv,
+  }) {
+    final matches = <int, Map<String, dynamic>>{};
+    for (final result in results) {
+      final raw = Map<String, dynamic>.from(result as Map);
+      final entry = isTv
+          ? TmdbRankEntry.fromTvJson(raw)
+          : TmdbRankEntry.fromMovieJson(raw);
+      if (_matchesLightIdentity(entry, title, year)) matches[entry.tmdbId] = raw;
+    }
+    return matches.length == 1 ? matches.values.single : null;
   }
 
   String _cacheKey(String prefix, String id, [int? suffix]) =>
@@ -690,6 +736,17 @@ class TmdbService {
   /// Une seule requête par série, mise en cache Hive (même TTL 24 h).
   /// Utilisée pour enrichir les cartes de la grille Séries en arrière-plan.
   Future<TmdbRankEntry?> searchTvLight(String title, {int? year}) async {
+    return _searchTvLight(title, year: year, verified: false);
+  }
+
+  Future<TmdbRankEntry?> searchTvLightVerified(String title, int year) =>
+      _searchTvLight(title, year: year, verified: true);
+
+  Future<TmdbRankEntry?> _searchTvLight(
+    String title, {
+    int? year,
+    required bool verified,
+  }) async {
     if (!hasApiKey) return null;
 
     final cacheKey = _cacheKey('gridTv', title, year ?? 0);
@@ -698,7 +755,11 @@ class TmdbService {
       (d) => TmdbRankEntry.fromTvJson(d),
       ttl: _lightCacheTtl,
     );
-    if (cached != null) return cached;
+    if (cached != null) {
+      return !verified || _matchesLightIdentity(cached, title, year)
+          ? cached
+          : null;
+    }
 
     await _waitForRateLimit();
 
@@ -719,12 +780,14 @@ class TmdbService {
           await _setCache(cacheKey, const <String, dynamic>{});
           return null;
         }
-        final entry = TmdbRankEntry.fromTvJson(
-          Map<String, dynamic>.from(results.first as Map),
-        );
+        final raw = verified
+            ? selectVerifiedLightResult(results, title, year, isTv: true)
+            : Map<String, dynamic>.from(results.first as Map);
+        if (raw == null) return null;
+        final entry = TmdbRankEntry.fromTvJson(raw);
         await _setCache(
           cacheKey,
-          Map<String, dynamic>.from(results.first as Map),
+          raw,
         );
         return entry;
       },

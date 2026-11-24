@@ -561,9 +561,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get homeChangeSubscription => 'Cambiar suscripción';
 
   @override
-  String get homeManageSubscription => 'Gestionar suscripción';
-
-  @override
   String get homeNoSubscription => 'Sin suscripción';
 
   @override
@@ -3028,7 +3025,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get later => 'Más tarde';
 
   @override
-  String get legalNotice => 'Leer · Aviso legal';
+  String get legalNotice => 'Aviso legal / Contacto';
 
   @override
   String get contactTeamTitle => 'Contactar con el equipo';

@@ -178,6 +178,18 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
               ],
               selected: {_mode},
               showSelectedIcon: false,
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.focused)
+                      ? const Color(0xFF1565C0)
+                      : null,
+                ),
+                foregroundColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.focused)
+                      ? Colors.white
+                      : null,
+                ),
+              ),
               onSelectionChanged: (sel) {
                 setState(() => _mode = sel.first);
                 _reset();
@@ -343,6 +355,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
     final async = ref.watch(matchmakingTabProvider(profile.id));
     return async.when(
       skipLoadingOnRefresh: false,
+      skipLoadingOnReload: true,
       data: (tab) {
         final list = _sortScored(_isMovie ? tab.movies : tab.series);
         if (list.isEmpty) return _emptyState();
@@ -363,7 +376,13 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
       case _MatchSort.affinityDesc:
         return list;
       case _MatchSort.affinityAsc:
-        return [...list]..sort((a, b) => a.affinity.compareTo(b.affinity));
+        return [...list]..sort((a, b) {
+            final affinity = (a.affinity * 100).round()
+                .compareTo((b.affinity * 100).round());
+            if (affinity != 0) return affinity;
+            final quality = b.quality.compareTo(a.quality);
+            return quality != 0 ? quality : _compareTitles(a.reco, b.reco);
+          });
       case _MatchSort.titleAsc:
         return [...list]..sort(
             (a, b) => a.reco.title
@@ -385,7 +404,13 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
       case _MatchSort.affinityDesc:
         return list;
       case _MatchSort.affinityAsc:
-        return [...list]..sort((a, b) => a.combined.compareTo(b.combined));
+        return [...list]..sort((a, b) {
+            final affinity = (a.combined * 100).round()
+                .compareTo((b.combined * 100).round());
+            if (affinity != 0) return affinity;
+            final quality = b.quality.compareTo(a.quality);
+            return quality != 0 ? quality : _compareTitles(a.reco, b.reco);
+          });
       case _MatchSort.titleAsc:
         return [...list]..sort(
             (a, b) => a.reco.title
@@ -399,6 +424,11 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
                 .compareTo(a.reco.title.toLowerCase()),
           );
     }
+  }
+
+  int _compareTitles(Recommendation a, Recommendation b) {
+    final title = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    return title != 0 ? title : a.id.compareTo(b.id);
   }
 
   // ---------------------------------------------------------------------------
@@ -424,6 +454,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
     final async = ref.watch(matchmakingGroupTabProvider(group));
     return async.when(
       skipLoadingOnRefresh: false,
+      skipLoadingOnReload: true,
       data: (tab) {
         final list = _sortGrouped(_isMovie ? tab.movies : tab.series);
         if (list.isEmpty) return _emptyState(group: true);
@@ -491,6 +522,9 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   }) {
     final l = AppLocalizations.of(context);
     final totalShown = list.length;
+    final indices = <String, int>{
+      for (var i = 0; i < list.length; i++) list[i].reco.id: i,
+    };
     return GridView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -499,6 +533,8 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
         childAspectRatio: 0.62,
       ),
       itemCount: totalShown + (hasMore ? 1 : 0),
+      findChildIndexCallback: (key) =>
+          key is ValueKey<String> ? indices[key.value] : null,
       itemBuilder: (context, index) {
         if (index == totalShown) {
           return Padding(
@@ -514,6 +550,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
         final scored = list[index];
         return _buildCard(
           scored.reco,
+          key: ValueKey(scored.reco.id),
           matchPercent: (scored.affinity * 100).round(),
         );
       },
@@ -526,6 +563,9 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   }) {
     final l = AppLocalizations.of(context);
     final totalShown = list.length;
+    final indices = <String, int>{
+      for (var i = 0; i < list.length; i++) list[i].reco.id: i,
+    };
     return GridView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -534,6 +574,8 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
         childAspectRatio: 0.62,
       ),
       itemCount: totalShown + (hasMore ? 1 : 0),
+      findChildIndexCallback: (key) =>
+          key is ValueKey<String> ? indices[key.value] : null,
       itemBuilder: (context, index) {
         if (index == totalShown) {
           return Padding(
@@ -549,14 +591,16 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
         final grouped = list[index];
         return _buildCard(
           grouped.reco,
+          key: ValueKey(grouped.reco.id),
           matchPercent: (grouped.combined * 100).round(),
         );
       },
     );
   }
 
-  Widget _buildCard(Recommendation reco, {int? matchPercent}) {
+  Widget _buildCard(Recommendation reco, {Key? key, int? matchPercent}) {
     return MatchmakingRecommendationCard(
+      key: key,
       reco: reco,
       matchPercent: matchPercent,
       onOpen: () => openRecommendation(context, reco),

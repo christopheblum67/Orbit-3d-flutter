@@ -1,4 +1,3 @@
-import 'package:orbit_3d_flutter/core/widgets/home_clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -165,7 +164,6 @@ void main() {
       expect(find.byType(NavigationRail), findsNothing);
       expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
       expect(find.byIcon(Icons.person_outline), findsNothing);
-      expect(find.byType(HomeClock), findsOneWidget);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();

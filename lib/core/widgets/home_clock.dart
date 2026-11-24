@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-/// Heure et date, rafraîchies chaque minute (barre supérieure de l'accueil).
+/// Heure et date de l'accueil, rafraîchies chaque minute.
 class HomeClock extends StatefulWidget {
   const HomeClock({super.key});
 

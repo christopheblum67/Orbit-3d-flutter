@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/services/affinity_sorter.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
+import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 
 /// Ces tests verrouillent le tri par affinité des écrans Films et Séries.
@@ -104,6 +105,20 @@ void main() {
       );
       expect(input, copy);
     });
+
+    test('à affinité égale, la qualité prime dans les deux sens', () {
+      for (final descending in [true, false]) {
+        final result = sortByAffinityDesc(
+          ['faible', 'fort', 'autre'],
+          descending: descending,
+          score: (value) => value == 'autre' ? 80.0 : 50.0,
+          quality: (value) => value == 'fort' ? 8.0 : 6.0,
+          title: (value) => value,
+        );
+        expect(result.indexOf('fort'), lessThan(result.indexOf('faible')));
+        expect(result.indexOf('autre'), descending ? 0 : 2);
+      }
+    });
   });
 
   group('tri par affinité + logique corrective (non-régression)', () {
@@ -154,9 +169,7 @@ void main() {
       final low = _movie('l', 'Low', 'Action', rating: 2);
       final high = _movie('h', 'High', 'Comédie', rating: 9);
 
-      // Sans genre favori, la formule ne garde que le bonus de note : l'ordre
-      // note décroissante est préservé (les écrans, eux, court-circuitent ce
-      // mode et rendent la liste telle quelle — cf. _sortByAffinity).
+      // Sans genre favori, la formule ne garde que le bonus de note.
       final res = sortByAffinityDesc(
         [low, high],
         score: (m) => empty.percentForMovie(m).toDouble(),
@@ -167,6 +180,61 @@ void main() {
   });
 
   group('alignement tri ↔ matchmaking', () {
+    test('la note pondérée tient compte des votes disponibles', () {
+      const fewVotes = TmdbRankEntry(
+        tmdbId: 1, title: 'A', posterPath: '', rating: 10, voteCount: 1,
+      );
+      const manyVotes = TmdbRankEntry(
+        tmdbId: 2, title: 'B', posterPath: '', rating: 8, voteCount: 1000,
+      );
+      expect(affinityWeightedRating(fewVotes), lessThan(affinityWeightedRating(manyVotes)));
+      expect(affinityWeightedRating(null), 6);
+      expect(affinityWeightedRating(const TmdbRankEntry(
+        tmdbId: 3, title: 'C', posterPath: '', rating: 10,
+      )), 6);
+    });
+
+    test('les sous-chaînes ne créent pas de faux genres communs', () {
+      final film = _movie('m', 'Film', 'Science fictionnaire');
+      expect(profileAffinity(Recommendation(
+        kind: RecommendationKind.movie, movie: film,
+      ), ['fiction']), 0);
+      expect(profileAffinity(Recommendation(
+        kind: RecommendationKind.movie,
+        movie: film.copyWith(genre: 'Science-fiction'),
+      ), ['SF']), greaterThan(0));
+      expect(profileAffinity(Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie('m', 'Fictionnaire', ''),
+      ), ['fiction']), 0);
+      expect(profileAffinity(Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie('m', 'Une histoire d’horreur', ''),
+      ), ['horror']), greaterThan(0));
+    });
+
+    test('les métadonnées compactes conservent identité et année', () {
+      const scorer = ProfileAffinityScorer(
+        favoriteGenres: ['Action'],
+        favoriteIds: {},
+        seenIds: {'seen'},
+        tmdbTitles: {},
+        rankingGenres: {
+          (title: 'test', year: 2024, isTv: false): 'Action',
+        },
+      );
+      final unseen = Recommendation.fromMetadata(
+        kind: RecommendationKind.movie, id: 'new', title: 'Test', year: 2024,
+        genre: 'Other',
+      );
+      final seen = Recommendation.fromMetadata(
+        kind: RecommendationKind.movie, id: 'seen', title: 'Test', year: 2024,
+        genre: 'Other',
+      );
+      expect(scorer.percentFor(unseen), greaterThan(0));
+      expect(scorer.percentFor(seen), 0);
+    });
+
     test('ProfileAffinityScorer applique la même formule que le matchmaking',
         () {
       const scorer = ProfileAffinityScorer(

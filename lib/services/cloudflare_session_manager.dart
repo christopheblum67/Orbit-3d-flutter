@@ -1,11 +1,32 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/secret_store.dart';
+
+@visibleForTesting
+Future<String> readCloudflareCookies({
+  required Future<String> Function() readNative,
+  required Future<String> Function() readJavaScript,
+}) async {
+  try {
+    final cookies = await readNative();
+    if (cookies.isNotEmpty) return cookies;
+  } catch (_) {
+    debugPrint('[CF] Native cookie storage unavailable');
+  }
+  try {
+    return await readJavaScript();
+  } catch (_) {
+    debugPrint('[CF] JavaScript cookie storage unavailable');
+    return '';
+  }
+}
 
 /// Gestionnaire de session Cloudflare pour le zapping IPTV.
 ///
@@ -18,19 +39,26 @@ import 'package:orbit_3d_flutter/services/secret_store.dart';
 class CloudflareSessionManager extends ChangeNotifier {
   static final CloudflareSessionManager _instance =
       CloudflareSessionManager._internal();
+  static const _cookieChannel = MethodChannel('orbit/cloudflare_cookies');
   factory CloudflareSessionManager() => _instance;
-  CloudflareSessionManager._internal();
+  CloudflareSessionManager._internal()
+      : _attemptTimeouts = _defaultAttemptTimeouts;
+  @visibleForTesting
+  CloudflareSessionManager.forTesting({
+    List<Duration> attemptTimeouts = _defaultAttemptTimeouts,
+  }) : _attemptTimeouts = attemptTimeouts;
 
   static const String _defaultUserAgent =
       'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36';
 
   /// Budget par tentative. Les delais sont reellement appliques via
   /// `Future.timeout`, ce qui evite qu'un challenge bloque indefiniment.
-  static const List<Duration> _attemptTimeouts = <Duration>[
+  static const List<Duration> _defaultAttemptTimeouts = <Duration>[
     Duration(seconds: 20),
     Duration(seconds: 30),
     Duration(seconds: 45),
   ];
+  final List<Duration> _attemptTimeouts;
 
   /// Duree de vie prudente d'un cookie cf_clearance avant renouvellement.
   static const Duration _cookieLifetime = Duration(hours: 2);
@@ -140,19 +168,12 @@ class CloudflareSessionManager extends ChangeNotifier {
   bool get hasClearance => _cookiesValid;
 
   /// Headers HTTP a injecter dans le lecteur video (video_player, fijkplayer).
-  /// Inclut les hints Sec-CH-UA attendus par la detection navigateur Cloudflare.
   Map<String, String> get videoHeaders {
     final headers = <String, String>{
       'User-Agent': _userAgent,
       'Referer': _baseUrl,
       'Accept': '*/*',
       'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-      'Sec-CH-UA': '"Chromium";v="119", "Not?A_Brand";v="24"',
-      'Sec-CH-UA-Mobile': '?1',
-      'Sec-CH-UA-Platform': '"Android"',
-      'Sec-Fetch-Dest': 'video',
-      'Sec-Fetch-Mode': 'playback',
-      'Sec-Fetch-Site': 'cross-site',
     };
     // Un header Cookie vide est rejete par certains serveurs : ne l'envoie
     // que si des cookies ont reellement ete captures.
@@ -318,6 +339,7 @@ class CloudflareSessionManager extends ChangeNotifier {
       try {
         await _runSingleAttempt(timeout);
         if (_cookiesValid) {
+          await _saveToPrefs();
           debugPrint('☁️ [CF] clearance obtained on attempt ${attempt + 1} '
               'in ${DateTime.now().difference(startedAt).inMilliseconds}ms');
           return;
@@ -339,9 +361,13 @@ class CloudflareSessionManager extends ChangeNotifier {
   /// Une tentative de navigation, plafonnee par [timeout].
   Future<void> _runSingleAttempt(Duration timeout) async {
     final controller = WebViewController();
-    controller
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(_userAgent);
+    await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+    final nativeUserAgent = await controller.getUserAgent();
+    if (nativeUserAgent != null && nativeUserAgent.trim().isNotEmpty) {
+      _userAgent = nativeUserAgent;
+    } else {
+      await controller.setUserAgent(_userAgent);
+    }
 
     final platform = controller.platform;
     if (platform is AndroidWebViewController) {
@@ -351,13 +377,18 @@ class CloudflareSessionManager extends ChangeNotifier {
     }
 
     final cookieManager = WebViewCookieManager();
-    final completer = Completer<void>();
+    final completer = Completer<String?>();
+    var active = true;
+    var pageGeneration = 0;
+    int? mainHttpError;
+    Uri? mainPage;
 
     // Cloudflare résout son challenge JavaScript APRÈS le chargement de la
     // page. On poll les cookies jusqu'à capturer cf_clearance, OU jusqu'à
     // confirmer que la page n'est pas un challenge Cloudflare.
     Future<void> onPageFinished(String url) async {
-      if (completer.isCompleted) return;
+      if (!active || completer.isCompleted) return;
+      final generation = ++pageGeneration;
       final current = Uri.tryParse(url);
       final expected = Uri.tryParse(_baseUrl);
       if (current == null ||
@@ -370,26 +401,17 @@ class CloudflareSessionManager extends ChangeNotifier {
         completer.completeError(StateError('Cloudflare origin changed'));
         return;
       }
-      for (var i = 0; i < 12; i++) {
-        if (completer.isCompleted) return;
+      while (active && !completer.isCompleted && generation == pageGeneration) {
         await Future<void>.delayed(const Duration(seconds: 1));
-        if (completer.isCompleted) return;
-        // Capture l'User-Agent réellement utilisé par le WebView (peut différer
-        // de la valeur forcée) pour que cf_clearance reste valide.
-        if (i == 0) {
-          try {
-            final ua = await controller.runJavaScriptReturningResult(
-              'navigator.userAgent',
-            );
-            final uaStr = ua.toString().replaceAll('"', '').trim();
-            if (uaStr.isNotEmpty && uaStr != 'null') {
-              _userAgent = uaStr;
-            }
-          } catch (_) {}
+        if (!active || completer.isCompleted || generation != pageGeneration) {
+          return;
         }
-        await _extractCookies(controller, cookieManager, url);
-        if (_cookiesValid) {
-          if (!completer.isCompleted) completer.complete();
+        final cookies = await _extractCookies(controller, cookieManager, url);
+        if (!active || completer.isCompleted || generation != pageGeneration) {
+          return;
+        }
+        if (cookies != null && mainHttpError == null) {
+          completer.complete(cookies);
           return;
         }
         // Vérifie si la page est un challenge Cloudflare non résolu.
@@ -397,36 +419,53 @@ class CloudflareSessionManager extends ChangeNotifier {
           final title = await controller.runJavaScriptReturningResult(
             'document.title',
           );
+          if (!active ||
+              completer.isCompleted ||
+              generation != pageGeneration) {
+            return;
+          }
           final t = title.toString().toLowerCase();
           final isChallenge = t.contains('just a moment') ||
               t.contains('checking your browser') ||
               t.contains('attention required') ||
               t.contains('cloudflare');
-          if (!isChallenge) {
+          if (!isChallenge && mainHttpError == null) {
             // Page normale : pas de challenge requis.
-            _noChallengeRequired = true;
-            if (!completer.isCompleted) completer.complete();
+            completer.complete(null);
             return;
           }
         } catch (_) {}
       }
-      // Toujours en challenge après 12s : échec.
-      if (!completer.isCompleted) {
-        completer.completeError(
-          StateError('Cloudflare challenge not solved within 12s'),
-        );
-      }
     }
 
     void onHttpError(HttpResponseError error) {
-      if (completer.isCompleted) return;
+      if (!active || completer.isCompleted) return;
+      final request = error.request?.uri;
+      final expected = Uri.parse(_baseUrl);
+      final page = mainPage ?? expected;
+      if (request == null ||
+          (request.scheme != 'http' && request.scheme != 'https') ||
+          request.origin != expected.origin ||
+          (request.path.isEmpty ? '/' : request.path) !=
+              (page.path.isEmpty ? '/' : page.path) ||
+          request.query != page.query) {
+        return;
+      }
+      final status = error.response?.statusCode;
+      mainHttpError = status;
+      if (status == 403 || status == 503) return;
       completer.completeError(
-        StateError('HTTP ${error.response?.statusCode} during CF challenge'),
+        StateError('HTTP $status during CF challenge'),
       );
     }
 
-    controller.setNavigationDelegate(
+    await controller.setNavigationDelegate(
       NavigationDelegate(
+        onPageStarted: (url) {
+          pageGeneration++;
+          mainHttpError = null;
+          mainPage = Uri.tryParse(url);
+        },
         onPageFinished: onPageFinished,
         onNavigationRequest: (NavigationRequest request) =>
             NavigationDecision.navigate,
@@ -434,42 +473,57 @@ class CloudflareSessionManager extends ChangeNotifier {
       ),
     );
 
-    await controller.loadRequest(Uri.parse(_baseUrl));
-    await completer.future.timeout(
-      timeout,
-      onTimeout: () => throw TimeoutException(
-        'CF challenge still pending after ${timeout.inSeconds}s',
+    try {
+      final results = await Future.wait<Object?>([
+        controller.loadRequest(Uri.parse(_baseUrl)).then<Object?>((_) => null),
+        completer.future,
+      ]).timeout(
         timeout,
-      ),
-    );
+        onTimeout: () => throw TimeoutException(
+          'CF challenge still pending after ${timeout.inSeconds}s',
+          timeout,
+        ),
+      );
+      final cookies = results[1] as String?;
+      if (cookies == null) {
+        _noChallengeRequired = true;
+      } else {
+        _cookies = cookies;
+        _cookieExpiry = DateTime.now().add(_cookieLifetime);
+      }
+    } finally {
+      active = false;
+      pageGeneration++;
+    }
   }
 
-  /// Extrait les cookies Cloudflare apres le challenge via `document.cookie`
-  /// (polling JS), qui est plus fiable que le gestionnaire natif de la WebView
-  /// dont le stockage est souvent isole/inaccessible depuis Dart.
-  /// Les valeurs ne sont jamais journalisees.
-  Future<void> _extractCookies(
+  /// Lit d'abord le stockage natif, qui inclut les cookies HttpOnly.
+  Future<String?> _extractCookies(
     WebViewController controller,
     WebViewCookieManager cookieManager,
     String url,
   ) async {
-    String raw = '';
-    try {
-      final result =
-          await controller.runJavaScriptReturningResult('document.cookie');
-      raw = result.toString().replaceAll('"', '');
-    } catch (_) {}
-    if (raw.isEmpty) {
-      try {
-        final uri = Uri.parse(url);
-        final cookies = await cookieManager.getCookies(domain: uri);
-        raw = cookies.map((c) => '${c.name}=${c.value}').join('; ');
-      } catch (_) {}
-    }
+    final raw = await readCloudflareCookies(
+      readNative: () async {
+        if (Platform.isAndroid) {
+          return await _cookieChannel.invokeMethod<String>(
+                'getCookies',
+                {'url': url},
+              ) ??
+              '';
+        }
+        final cookies = await cookieManager.getCookies(domain: Uri.parse(url));
+        return cookies.map((c) => '${c.name}=${c.value}').join('; ');
+      },
+      readJavaScript: () async =>
+          (await controller.runJavaScriptReturningResult('document.cookie'))
+              .toString()
+              .replaceAll('"', ''),
+    );
 
     if (raw.isEmpty) {
       debugPrint('☁️ [CF] no cookies returned');
-      return;
+      return null;
     }
 
     final entries =
@@ -484,15 +538,17 @@ class CloudflareSessionManager extends ChangeNotifier {
     }).toList();
 
     final kept = relevant.isNotEmpty ? relevant : entries;
-    final hasClearance =
-        kept.any((c) => c.toLowerCase().startsWith('cf_clearance='));
-    if (!hasClearance) return;
-    _cookies = kept.join('; ');
-    _cookieExpiry = DateTime.now().add(_cookieLifetime);
-    await _saveToPrefs();
+    final hasClearance = kept.any((cookie) {
+      final separator = cookie.indexOf('=');
+      return separator > 0 &&
+          cookie.substring(0, separator).toLowerCase() == 'cf_clearance' &&
+          cookie.substring(separator + 1).trim().isNotEmpty;
+    });
+    if (!hasClearance) return null;
 
     debugPrint('☁️ [CF] cookies captured: ${kept.length} entries, '
-        '${_cookies.length} chars, cf_clearance=$hasClearance');
+        'cf_clearance=$hasClearance');
+    return kept.join('; ');
   }
 
   /// Detecte si une erreur de lecture est imputable a Cloudflare.

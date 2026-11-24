@@ -550,9 +550,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeChangeSubscription => 'Change subscription';
 
   @override
-  String get homeManageSubscription => 'Manage subscription';
-
-  @override
   String get homeNoSubscription => 'No subscription';
 
   @override
@@ -2976,7 +2973,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get later => 'Later';
 
   @override
-  String get legalNotice => 'Read me · Legal notice';
+  String get legalNotice => 'Legal notice / Contact';
 
   @override
   String get contactTeamTitle => 'Contact the team';

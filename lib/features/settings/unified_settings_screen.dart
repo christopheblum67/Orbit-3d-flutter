@@ -202,6 +202,7 @@ class _NavTile extends ConsumerWidget {
     required this.onTap,
     this.iconAsset,
     this.autofocus = false,
+    this.showIcon = true,
   });
 
   final IconData icon;
@@ -212,18 +213,20 @@ class _NavTile extends ConsumerWidget {
 
   /// Focus initial (premier élément de l'écran, en mode TV).
   final bool autofocus;
+  final bool showIcon;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     ref.watch(tvModeProvider);
     final isTv = ref.watch(tvModeControllerProvider).isRealTv;
-    final targetSize = isTv
-        ? 76.0
-        : MediaQuery.orientationOf(context) == Orientation.landscape
-            ? 52.0
-            : 60.0;
     return LayoutBuilder(builder: (context, constraints) {
+      final targetSize =
+          MediaQuery.orientationOf(context) == Orientation.landscape
+              ? MediaQuery.sizeOf(context).height * 0.3
+              : isTv
+                  ? 76.0
+                  : 60.0;
       final diameter = (constraints.maxWidth - 6).clamp(0.0, targetSize);
       return TvFocus(
         autofocus: autofocus,
@@ -244,50 +247,75 @@ class _NavTile extends ConsumerWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          width: diameter,
-                          height: diameter,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: scheme.surfaceContainer,
-                            border: Border.all(
-                              color: scheme.primary
-                                  .withValues(alpha: focused ? 1 : 0.5),
-                              width: focused ? 2.5 : 1,
+                        if (showIcon) ...[
+                          Container(
+                            width: diameter,
+                            height: diameter,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: scheme.surfaceContainer,
+                              border: Border.all(
+                                color: scheme.primary
+                                    .withValues(alpha: focused ? 1 : 0.5),
+                                width: focused ? 2.5 : 1,
+                              ),
+                              boxShadow: focused
+                                  ? [
+                                      BoxShadow(
+                                        color: scheme.primary
+                                            .withValues(alpha: 0.35),
+                                        blurRadius: 12,
+                                      ),
+                                    ]
+                                  : null,
                             ),
-                            boxShadow: focused
-                                ? [
-                                    BoxShadow(
-                                      color: scheme.primary
-                                          .withValues(alpha: 0.35),
-                                      blurRadius: 12,
-                                    ),
-                                  ]
-                                : null,
+                            child: Center(
+                              child: iconAsset != null
+                                  ? Image.asset(
+                                      iconAsset!,
+                                      width: diameter * 0.65,
+                                      height: diameter * 0.65,
+                                      excludeFromSemantics: true,
+                                    )
+                                  : Icon(icon,
+                                      size: diameter * 0.46,
+                                      color: scheme.primary),
+                            ),
                           ),
-                          child: Center(
-                            child: iconAsset != null
-                                ? Image.asset(
-                                    iconAsset!,
-                                    width: diameter * 0.65,
-                                    height: diameter * 0.65,
-                                    excludeFromSemantics: true,
-                                  )
-                                : Icon(icon,
-                                    size: diameter * 0.46,
-                                    color: scheme.primary),
+                          const SizedBox(height: 4),
+                          Text(
+                            title,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color:
+                                  focused ? scheme.primary : scheme.onSurface,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: focused ? scheme.primary : scheme.onSurface,
+                        ] else
+                          Container(
+                            width: diameter,
+                            constraints:
+                                BoxConstraints(minHeight: diameter + 4),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: focused
+                                  ? Border.all(color: scheme.primary, width: 2)
+                                  : null,
+                            ),
+                            child: Text(
+                              title,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color:
+                                    focused ? scheme.primary : scheme.onSurface,
+                              ),
+                            ),
                           ),
-                        ),
                         if (subtitle.isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Text(
@@ -1064,7 +1092,7 @@ class _AdvancedSection {
           ),
         _NavTile(
           icon: Icons.cleaning_services_outlined,
-          iconAsset: 'assets/icons/settings-cache.png',
+          showIcon: false,
           title: l.clearCaches,
           onTap: () => _clearAllCaches(context, ref),
         ),
@@ -1085,7 +1113,7 @@ class _AdvancedSection {
       ),
       _NavTile(
         icon: Icons.balance_outlined,
-        iconAsset: 'assets/icons/settings-legal.png',
+        showIcon: false,
         title: l.legalNotice,
         onTap: () => showDialog<void>(
           context: context,

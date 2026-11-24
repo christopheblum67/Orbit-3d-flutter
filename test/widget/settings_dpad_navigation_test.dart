@@ -114,8 +114,8 @@ void main() {
 
   for (final config in [
     (size: const Size(360, 720), tv: false, manual: false, expected: 60.0),
-    (size: const Size(640, 360), tv: false, manual: true, expected: 52.0),
-    (size: const Size(960, 540), tv: true, manual: false, expected: 76.0),
+    (size: const Size(640, 360), tv: false, manual: true, expected: 108.0),
+    (size: const Size(960, 540), tv: true, manual: false, expected: 162.0),
     (size: const Size(540, 960), tv: true, manual: false, expected: 76.0),
   ]) {
     testWidgets('settings icons adapt to ${config.size}, TV=${config.tv}',
@@ -171,7 +171,12 @@ void main() {
       final diameter = tester.getSize(circle).width;
       expect(diameter, lessThanOrEqualTo(config.expected));
       expect(diameter, greaterThanOrEqualTo(config.tv ? 65 : 48));
-      if (!config.tv) expect(diameter, closeTo(config.expected, 0.1));
+      if (config.size.width > config.size.height) {
+        expect(diameter, closeTo(tester.getSize(profile).width - 6, 0.1));
+        expect(diameter, greaterThan(52));
+      } else if (!config.tv) {
+        expect(diameter, closeTo(config.expected, 0.1));
+      }
       final image = find.descendant(of: profile, matching: find.byType(Image));
       expect(tester.getSize(image).width, closeTo(diameter * 0.65, 0.1));
       expect(tester.getRect(circle).left,
@@ -966,7 +971,6 @@ void main() {
     final l = lookupAppLocalizations(const Locale('en'));
     for (final entry in {
       l.sectionAccessibility: 'assets/icons/settings-accessibility.png',
-      l.legalNotice: 'assets/icons/settings-legal.png',
       l.settingsActivateApp: 'assets/icons/settings-activate.png',
       l.resetApp: 'assets/icons/settings-reset.png',
       l.accountPreferences: 'assets/icons/settings-preferences.png',
@@ -983,6 +987,18 @@ void main() {
         find.descendant(of: tile, matching: find.byType(Image)),
       );
       expect((image.image as AssetImage).assetName, entry.value);
+    }
+    for (final title in [l.legalNotice, l.clearCaches]) {
+      final tile = find
+          .ancestor(
+            of: find.text(title),
+            matching: find.byType(TvFocus),
+          )
+          .first;
+      expect(find.descendant(of: tile, matching: find.byType(Image)),
+          findsNothing);
+      expect(
+          find.descendant(of: tile, matching: find.byType(Icon)), findsNothing);
     }
     for (final title in [
       l.sectionAccountProfile,

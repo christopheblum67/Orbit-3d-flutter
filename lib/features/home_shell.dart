@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/drawer_menu_button.dart';
-import 'package:orbit_3d_flutter/core/widgets/home_clock.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -66,12 +65,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     ),
                   ),
                   title: Text(_titleForPath(context, location)),
-                  actions: const [
-                    Padding(
-                      padding: EdgeInsets.only(right: 16),
-                      child: Center(child: HomeClock()),
-                    ),
-                  ],
                 )
               : null,
           body: Row(

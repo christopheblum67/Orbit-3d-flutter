@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/widgets/tv_key_handler_wrapper.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/home_clock.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_freshness.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
@@ -655,6 +656,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
+                const HomeClock(),
+                const SizedBox(width: 10),
                 _SubStatusChip(
                   focusNode: _subscriptionFocus,
                   onOpenSubscriptions: () => context.go('/subscriptions'),
@@ -784,9 +787,6 @@ class _SubStatusChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sub = ref.watch(activeSubscriptionProvider);
     final scheme = Theme.of(context).colorScheme;
-    final accent = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF00CFE8)
-        : _lightAccent(const Color(0xFF00CFE8));
     final name = sub?.name ?? '';
     final validity = sub?.validityLabel ?? '';
     if (name.isEmpty) {
@@ -795,76 +795,48 @@ class _SubStatusChip extends ConsumerWidget {
         onTap: onOpenSubscriptions,
       );
     }
-    return IntrinsicHeight(
-        child: Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: scheme.primaryContainer.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: scheme.primary.withValues(alpha: 0.4),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: TextStyle(
-                  color: scheme.primary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
+    return TvFocus(
+      focusNode: focusNode,
+      onActivate: onOpenSubscriptions,
+      child: GestureDetector(
+        onTap: onOpenSubscriptions,
+        child: Tooltip(
+          message: AppLocalizations.of(context).homeChangeSubscription,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: scheme.primary.withValues(alpha: 0.4),
               ),
-              if (validity.isNotEmpty)
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  validity,
+                  name,
                   style: TextStyle(
-                    color: scheme.primary.withValues(alpha: 0.7),
-                    fontSize: 10,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        TvFocus(
-          focusNode: focusNode,
-          onActivate: onOpenSubscriptions,
-          child: GestureDetector(
-            onTap: onOpenSubscriptions,
-            child: Tooltip(
-              message: AppLocalizations.of(context).homeChangeSubscription,
-              child: Container(
-                alignment: Alignment.center,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: accent.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Text(
-                  AppLocalizations.of(context).homeManageSubscription,
-                  style: TextStyle(
-                    color: accent,
+                    color: scheme.primary,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
+                if (validity.isNotEmpty)
+                  Text(
+                    validity,
+                    style: TextStyle(
+                      color: scheme.primary.withValues(alpha: 0.7),
+                      fontSize: 10,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
-      ],
-    ));
+      ),
+    );
   }
 }
 
@@ -878,74 +850,43 @@ class _NoSubscriptionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = isDark
-        ? const Color(0xFF00CFE8)
-        : _lightAccent(const Color(0xFF00CFE8));
-    return IntrinsicHeight(
-        child: Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: scheme.secondaryContainer.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.credit_card_rounded,
-                color: Colors.amberAccent,
-                size: 16,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                AppLocalizations.of(context).homeNoSubscription,
-                style: TextStyle(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.5)
-                      : scheme.onSurfaceVariant,
-                  fontSize: 13,
+    return TvFocus(
+      focusNode: focusNode,
+      onActivate: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Tooltip(
+          message: AppLocalizations.of(context).homeAddOrChangeSubscription,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: scheme.secondaryContainer.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.credit_card_rounded,
+                  color: Colors.amberAccent,
+                  size: 16,
                 ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        TvFocus(
-          focusNode: focusNode,
-          onActivate: onTap,
-          child: GestureDetector(
-            onTap: onTap,
-            child: Tooltip(
-              message: AppLocalizations.of(context).homeAddOrChangeSubscription,
-              child: Container(
-                alignment: Alignment.center,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: accent.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Text(
-                  'Gestion Abonnement',
+                const SizedBox(width: 6),
+                Text(
+                  AppLocalizations.of(context).homeNoSubscription,
                   style: TextStyle(
-                    color: accent,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.5)
+                        : scheme.onSurfaceVariant,
                     fontSize: 13,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
-      ],
-    ));
+      ),
+    );
   }
 }
 
