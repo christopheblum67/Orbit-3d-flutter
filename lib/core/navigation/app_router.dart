@@ -102,9 +102,10 @@ class AnalyticsRouteObserver extends NavigatorObserver {
 }
 
 class _ProfileFormRoute extends StatefulWidget {
-  const _ProfileFormRoute({this.profileId});
+  const _ProfileFormRoute({this.profileId, this.returnToSettings = false});
 
   final String? profileId;
+  final bool returnToSettings;
 
   @override
   State<_ProfileFormRoute> createState() => _ProfileFormRouteState();
@@ -118,7 +119,11 @@ class _ProfileFormRouteState extends State<_ProfileFormRoute> {
     return FormBackHandlerScope(
       onWillPop: () async =>
           (await _editKey.currentState?.confirmLeave()) ?? true,
-      child: ProfileEditScreen(key: _editKey, profileId: widget.profileId),
+      child: ProfileEditScreen(
+        key: _editKey,
+        profileId: widget.profileId,
+        returnToSettings: widget.returnToSettings,
+      ),
     );
   }
 }
@@ -150,16 +155,22 @@ final GoRouter router = GoRouter(
       path: '/profiles',
       builder: (context, state) => ProfileSelectionScreen(
         startupFlow: state.uri.queryParameters['startup'] == 'true',
+        fromSettings: state.uri.queryParameters['from'] == 'settings',
       ),
     ),
     GoRoute(
       path: '/profile/create',
-      builder: (context, state) => const _ProfileFormRoute(),
+      builder: (context, state) => _ProfileFormRoute(
+        returnToSettings: state.uri.queryParameters['from'] == 'settings',
+      ),
     ),
     GoRoute(
       path: '/profile/edit/:id',
       builder: (context, state) =>
-          _ProfileFormRoute(profileId: state.pathParameters['id']),
+          _ProfileFormRoute(
+            profileId: state.pathParameters['id'],
+            returnToSettings: state.uri.queryParameters['from'] == 'settings',
+          ),
     ),
     GoRoute(
       path: '/profile/pin',

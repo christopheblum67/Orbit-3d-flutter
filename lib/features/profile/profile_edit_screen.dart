@@ -29,10 +29,17 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 /// par l'UI. Les booléens `hideAdultContent`/`hideViolentContent` du modèle
 /// restent (compat données) mais ne sont plus édités ici.
 class ProfileEditScreen extends ConsumerStatefulWidget {
-  const ProfileEditScreen({super.key, this.profileId});
+  const ProfileEditScreen({
+    super.key,
+    this.profileId,
+    this.returnToSettings = false,
+  });
 
   /// Identifiant du profil à modifier (`null` = création).
   final String? profileId;
+
+  /// Ouvert depuis Configuration : Enregistrer/Annuler y retournent.
+  final bool returnToSettings;
 
   @override
   ConsumerState<ProfileEditScreen> createState() => ProfileEditScreenState();
@@ -92,9 +99,21 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   /// puis quitte via [router.pop] si confirmé.
   Future<void> handleBack() async {
     if (!await confirmLeave() || !mounted) return;
+    if (widget.returnToSettings) {
+      context.go('/settings');
+      return;
+    }
     final router = GoRouter.of(context);
     if (router.canPop()) {
       router.pop();
+    }
+  }
+
+  void _exitAfterSave() {
+    if (widget.returnToSettings) {
+      context.go('/settings');
+    } else {
+      context.pop();
     }
   }
 
@@ -446,7 +465,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ref.read(profileTypeProvider.notifier).loadFromProfile(updated);
           }
           ref.invalidate(profilesProvider);
-          context.pop();
+          _exitAfterSave();
           return;
         }
 
@@ -480,7 +499,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         await ref.read(storageServiceProvider).saveProfile(profile);
         if (!mounted) return;
         ref.invalidate(profilesProvider);
-        context.pop();
+        _exitAfterSave();
       },
       context: '_save profile',
     );

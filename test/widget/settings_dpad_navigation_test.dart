@@ -368,11 +368,17 @@ void main() {
       }
       final fontSize =
           tester.widget<Text>(find.text('User profiles')).style!.fontSize!;
+      final heading = tester.widget<Text>(find.text(
+        lookupAppLocalizations(const Locale('en'))
+            .sectionAccountProfile
+            .toUpperCase(),
+      ));
+      expect(fontSize, closeTo(heading.style!.fontSize! - 2, 0.01));
       if ((config.tv || config.manual) &&
           config.size.width > config.size.height) {
-        expect(fontSize, inInclusiveRange(8, 30));
+        expect(fontSize, inInclusiveRange(6, 28));
       } else {
-        expect(fontSize, closeTo(15.6, 0.01));
+        expect(fontSize, closeTo(13.6, 0.01));
       }
       final image = find.descendant(of: profile, matching: find.byType(Image));
       expect(tester.getSize(image).width, closeTo(diameter * 0.65, 0.1));

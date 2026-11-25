@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:orbit_3d_flutter/core/widgets/edge_locked_focus_group.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -261,18 +262,21 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
             SliverToBoxAdapter(
               child: Material(
                 color: scheme.surface,
-                child: TabBar(
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  labelStyle: seasonLabelStyle,
-                  unselectedLabelStyle: seasonLabelStyle,
-                  labelPadding:
-                      const EdgeInsets.symmetric(horizontal: 16 * 1.4),
-                  onTap: (index) =>
-                      setState(() => _selectedSeason = seasons[index]),
-                  tabs: [
-                    for (final number in seasons) seasonTab(number),
-                  ],
+                child: EdgeLockedFocusGroup(
+                  axis: Axis.horizontal,
+                  child: TabBar(
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    labelStyle: seasonLabelStyle,
+                    unselectedLabelStyle: seasonLabelStyle,
+                    labelPadding:
+                        const EdgeInsets.symmetric(horizontal: 16 * 1.4),
+                    onTap: (index) =>
+                        setState(() => _selectedSeason = seasons[index]),
+                    tabs: [
+                      for (final number in seasons) seasonTab(number),
+                    ],
+                  ),
                 ),
               ),
             ),

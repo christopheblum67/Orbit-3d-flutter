@@ -18,9 +18,14 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 /// (initiale ou image), animation d'entrée en cascade, et carte
 /// "+" vers la création de profil (finalisée en S3).
 class ProfileSelectionScreen extends ConsumerStatefulWidget {
-  const ProfileSelectionScreen({super.key, this.startupFlow = false});
+  const ProfileSelectionScreen({
+    super.key,
+    this.startupFlow = false,
+    this.fromSettings = false,
+  });
 
   final bool startupFlow;
+  final bool fromSettings;
 
   @override
   ConsumerState<ProfileSelectionScreen> createState() =>
@@ -125,12 +130,16 @@ class _ProfileSelectionScreenState
       );
       return;
     }
-    context.push('/profile/create');
+    context.push(
+      widget.fromSettings ? '/profile/create?from=settings' : '/profile/create',
+    );
   }
 
   Future<void> _openEdit(UserProfile profile) async {
     if (!await _authorize(profile) || !mounted) return;
-    await context.push('/profile/edit/${profile.id}');
+    await context.push(
+      '/profile/edit/${profile.id}${widget.fromSettings ? '?from=settings' : ''}',
+    );
   }
 
   Future<void> _openDelete(UserProfile profile) async {

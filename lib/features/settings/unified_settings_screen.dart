@@ -435,7 +435,7 @@ class _NavTile extends ConsumerWidget {
                           title,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: sizing?.fontSize ?? 15.6,
+                            fontSize: (sizing?.fontSize ?? 15.6) - 2,
                             fontWeight: FontWeight.w700,
                             color: focused ? scheme.primary : scheme.onSurface,
                           ),
@@ -477,7 +477,7 @@ class _AccountSection {
           icon: Icons.manage_accounts_rounded,
           iconAsset: 'assets/icons/settings-profile.png',
           title: l.accountProfiles,
-          onTap: () => context.go('/profiles'),
+          onTap: () =>           context.go('/profiles?from=settings'),
         ),
         _NavTile(
           icon: Icons.subscriptions_rounded,

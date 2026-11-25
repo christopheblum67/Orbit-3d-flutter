@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/core/utils/xtream_taxonomy.dart';
+import 'package:orbit_3d_flutter/core/widgets/edge_locked_focus_group.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 
 /// Barre latérale de catégories, fixe à gauche.
@@ -43,35 +44,42 @@ class CategoriesRail extends StatelessWidget {
           ),
         ),
       ),
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        children: [
-          if (isWide)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Text(
-                title,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.4,
-                    ),
+      child: EdgeLockedFocusGroup(
+        axis: Axis.vertical,
+        child: ListView(
+          // Toutes les tuiles restent construites : le focus D-pad doit pouvoir
+          // atteindre les catégories hors écran.
+          cacheExtent: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          children: [
+            if (isWide)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
+                      ),
+                ),
               ),
-            ),
-          for (final category in categories)
-            _FocusableCategoryTile(
-              key: ValueKey(category.id),
-              name: XtreamTaxonomy.cleanCategory(category.name),
-              count: category.count,
-              addedCount: increasedCounts[category.id]?.total == category.count
-                  ? increasedCounts[category.id]!.added
-                  : 0,
-              selected: category.id == selectedId,
-              initialFocus: focusSelectedOnMount && category.id == selectedId,
-              compact: !isWide,
-              onTap: () => onSelected(category.id),
-            ),
-        ],
+            for (final category in categories)
+              _FocusableCategoryTile(
+                key: ValueKey(category.id),
+                name: XtreamTaxonomy.cleanCategory(category.name),
+                count: category.count,
+                addedCount:
+                    increasedCounts[category.id]?.total == category.count
+                        ? increasedCounts[category.id]!.added
+                        : 0,
+                selected: category.id == selectedId,
+                initialFocus: focusSelectedOnMount && category.id == selectedId,
+                compact: !isWide,
+                onTap: () => onSelected(category.id),
+              ),
+          ],
+        ),
       ),
     );
   }
