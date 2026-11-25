@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
@@ -29,6 +30,75 @@ Widget _localizedApp(Widget child, {Locale? locale, TvModeNotifier? tvMode}) {
 }
 
 void main() {
+  for (final locale in [const Locale('fr'), const Locale('ar')]) {
+    testWidgets('discard dialog starts on cancel and supports D-pad in $locale',
+        (tester) async {
+      final router = GoRouter(routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => Scaffold(
+            body: TextButton(
+              onPressed: () => context.push('/edit'),
+              child: const Text('OPEN'),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/edit',
+          builder: (context, state) => const ProfileEditScreen(),
+        ),
+      ]);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ));
+      await tester.tap(find.text('OPEN'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byType(TextFormField),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(find.byType(TextFormField), 'Camille');
+      await tester.tap(find.byTooltip(
+        lookupAppLocalizations(locale).profileBack,
+      ));
+      await tester.pumpAndSettle();
+      final l = lookupAppLocalizations(locale);
+      final dialog = find.byType(AlertDialog);
+      final cancel = find.descendant(
+        of: dialog,
+        matching: find.widgetWithText(TextButton, l.cancel),
+      );
+      expect(Focus.of(tester.element(cancel)).hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(dialog, findsNothing);
+      expect(find.byType(ProfileEditScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.byTooltip(l.profileBack));
+      await tester.pumpAndSettle();
+      expect(Focus.of(tester.element(cancel)).hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      final leave = find.descendant(
+        of: dialog,
+        matching: find.widgetWithText(FilledButton, l.profileLeave),
+      );
+      expect(Focus.of(tester.element(leave)).hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(find.text('OPEN'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('gender choices are absent in every supported language',
       (tester) async {
     for (final locale in AppLocalizations.supportedLocales) {

@@ -56,28 +56,31 @@ class XtreamSeriesDetailService {
     stitched['series_id'] = seriesId;
     final episodeMaps = <Map<String, dynamic>>[];
     final rawEpisodes = root['episodes'];
-    if (rawEpisodes is Map) {
-      for (final seasonEntry in rawEpisodes.entries) {
-        final season = int.tryParse(seasonEntry.key.toString()) ?? 0;
-        final list =
-            seasonEntry.value is List ? seasonEntry.value as List : const [];
-        for (final raw in list) {
-          final em = Map<String, dynamic>.from(raw as Map);
-          em['season'] = season;
-          final id = em['id']?.toString() ?? '';
-          em['url'] = id.isEmpty
-              ? ''
-              : XtreamUrlBuilder.buildStreamUrl(
-                  baseUrl,
-                  username,
-                  password,
-                  id,
-                  type: 'series',
-                  extension: em['container_extension']?.toString(),
-                  withExtension: true,
-                );
-          episodeMaps.add(em);
-        }
+    final seasons = rawEpisodes is Map
+        ? rawEpisodes
+        : rawEpisodes is List
+            ? rawEpisodes.asMap()
+            : const {};
+    for (final seasonEntry in seasons.entries) {
+      final season = int.tryParse(seasonEntry.key.toString()) ?? 0;
+      final list =
+          seasonEntry.value is List ? seasonEntry.value as List : const [];
+      for (final raw in list) {
+        final em = Map<String, dynamic>.from(raw as Map);
+        em['season'] = season;
+        final id = em['id']?.toString() ?? '';
+        em['url'] = id.isEmpty
+            ? ''
+            : XtreamUrlBuilder.buildStreamUrl(
+                baseUrl,
+                username,
+                password,
+                id,
+                type: 'series',
+                extension: em['container_extension']?.toString(),
+                withExtension: true,
+              );
+        episodeMaps.add(em);
       }
     }
     stitched['episodes'] = episodeMaps;

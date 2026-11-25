@@ -62,6 +62,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get audioSyncTitle => 'تأخير الصوت (مزامنة الصوت والصورة)';
 
   @override
+  String get audioSyncLimitations =>
+      'يعمل فقط مع المشغل الداخلي وصوت PCM ‏16 بت وتفعيل Night Focus. لا تُطبّق القيم السالبة.';
+
+  @override
   String startupResumeQuestion(String title, String position) {
     return 'استئناف «$title» عند $position؟';
   }
@@ -2681,12 +2685,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get comingSoon => 'قريباً';
-
-  @override
-  String get settingsContact => 'اتصل بنا';
-
-  @override
-  String get settingsActivateApp => 'تفعيل التطبيق';
 
   @override
   String get confirmAndContinue => 'تأكيد والمتابعة';

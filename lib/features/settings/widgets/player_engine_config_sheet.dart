@@ -210,7 +210,7 @@ class _PlayerEngineConfigSheetState
       },
       onFocusChange: (focused) {
         if (focused && focusNode.context != null) {
-          Scrollable.ensureVisible(focusNode.context!);
+          _revealFocus(focusNode.context!);
         }
       },
       child: _FocusHalo(
@@ -221,10 +221,14 @@ class _PlayerEngineConfigSheetState
             onChanged: (value) {
               if (value != null) onChanged(value);
             },
-            title: Text(title, style: const TextStyle(fontSize: 12)),
+            title: Text(title, style: const TextStyle(fontSize: 11)),
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
             dense: true,
+            horizontalTitleGap: 4,
+            minLeadingWidth: 0,
+            minVerticalPadding: 0,
+            minTileHeight: 30,
             visualDensity: VisualDensity.compact,
           ),
         ),
@@ -236,16 +240,28 @@ class _PlayerEngineConfigSheetState
     if (mounted) {
       FocusScope.of(context).requestFocus(focus);
       if ((focus == _primaryFocusNodes[PlaybackContentType.live] ||
-              focus == _fallbackFocusNodes[PlaybackContentType.live]) &&
+              focus == _fallbackFocusNodes[PlaybackContentType.live] ||
+              focus == _primaryFocusNodes[PlaybackContentType.vod] ||
+              focus == _fallbackFocusNodes[PlaybackContentType.vod]) &&
           _scrollController.hasClients) {
         _scrollController.jumpTo(_scrollController.position.minScrollExtent);
-        return;
       }
       final target = focus.context;
       if (target != null) {
-        Scrollable.ensureVisible(target);
+        _revealFocus(target);
       }
     }
+  }
+
+  void _revealFocus(BuildContext target) {
+    Scrollable.ensureVisible(
+      target,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+    );
+    Scrollable.ensureVisible(
+      target,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+    );
   }
 
   Widget _buildTvDropdownButton({
@@ -394,7 +410,7 @@ class _PlayerEngineConfigSheetState
         ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.78,
+            maxHeight: MediaQuery.of(context).size.height * 0.86,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -543,17 +559,17 @@ class _PlayerEngineConfigSheetState
                                     getPrevPrimaryFocus: (type) {
                                       final types = PlaybackContentType.values;
                                       final index = types.indexOf(type);
-                                      return index > 0
+                                      return index >= 2
                                           ? _fallbackFocusNodes[
-                                              types[index - 1]]!
+                                              types[index - 2]]!
                                           : _closeFocus;
                                     },
                                     getNextFallbackFocus: (type) {
                                       final types = PlaybackContentType.values;
                                       final index = types.indexOf(type);
-                                      return index + 1 < types.length
+                                      return index + 2 < types.length
                                           ? _primaryFocusNodes[
-                                              types[index + 1]]!
+                                              types[index + 2]]!
                                           : _decoderFocusNodes.first;
                                     },
                                     getPrevFallbackFocus: (type) =>
@@ -577,13 +593,19 @@ class _PlayerEngineConfigSheetState
                             children: [
                               AppCard(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 6),
+                                    horizontal: 8, vertical: 4),
                                 borderRadius: BorderRadius.circular(
                                     AppConstants.radiusLg),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(l.engineVideoDecoding),
+                                    Text(
+                                      l.engineVideoDecoding,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                     for (var i = 0;
                                         i < VideoDecoderMode.values.length;
                                         i++)
@@ -633,13 +655,13 @@ class _PlayerEngineConfigSheetState
                                           fontSize: 12,
                                           color: scheme.onSurfaceVariant)),
                                 ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 4),
                               Text(l.tabPlayer,
                                   style: const TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w700)),
                               Text(l.engineVodSubtitles,
-                                  style: const TextStyle(fontSize: 12)),
+                                  style: const TextStyle(fontSize: 11)),
                               for (var i = 0; i < 3; i++)
                                 _buildPlayerCheckbox(
                                   focusNode: _subtitleFocusNodes[i],

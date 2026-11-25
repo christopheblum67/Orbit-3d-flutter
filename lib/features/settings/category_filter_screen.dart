@@ -128,6 +128,11 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
                   height: widget.embedded ? 38 : null,
                   child: TabBar(
                     controller: _tabController,
+                    onFocusChange: (focused, index) {
+                      if (focused && !_tabFocusNodes[index].hasFocus) {
+                        _tabFocusNodes[index].requestFocus();
+                      }
+                    },
                     labelStyle:
                         widget.embedded ? const TextStyle(fontSize: 12) : null,
                     tabs: [

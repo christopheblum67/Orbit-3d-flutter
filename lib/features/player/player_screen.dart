@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
@@ -214,7 +215,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   bool _protectedPlaybackUnsupported = false;
   int _generation = 0;
   bool _footerVisible = false;
-  bool _streamDetailsOpen = false;
+  bool _playerMenuOpen = false;
   Timer? _footerTimer;
   Timer? _nextEpisodeTimer;
   Episode? _nextEpisode;
@@ -452,7 +453,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     Duration duration = _footerBarDuration,
     bool focusControls = true,
   }) {
-    if (_streamDetailsOpen) return;
+    if (_playerMenuOpen) return;
     _footerTimer?.cancel();
     final firstShow = !_footerVisible;
     _footerVisible = true;
@@ -508,8 +509,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   Future<void> _openStreamDetails() async {
     final player = _controller;
-    if (player == null || _streamDetailsOpen) return;
-    _streamDetailsOpen = true;
+    if (player == null || _playerMenuOpen) return;
+    _playerMenuOpen = true;
     _hideFooterBar();
     try {
       await showStreamDetailsSheet(
@@ -519,7 +520,19 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         isLive: widget.contentType == PlaybackContentType.live,
       );
     } finally {
-      _streamDetailsOpen = false;
+      _playerMenuOpen = false;
+      if (mounted) _showFooterBar();
+    }
+  }
+
+  Future<void> _openAudioSync() async {
+    if (_controller == null || _playerMenuOpen) return;
+    _playerMenuOpen = true;
+    _hideFooterBar();
+    try {
+      await showAudioControlsSheet(context, focusAudioSync: true);
+    } finally {
+      _playerMenuOpen = false;
       if (mounted) _showFooterBar();
     }
   }
@@ -2105,6 +2118,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                                   onSeekForward30: () =>
                                       _seekBy(const Duration(seconds: 30)),
                                   onToggleNightFocus: _toggleNightFocus,
+                                  onAudioSync: _openAudioSync,
                                   onDetailsPressed: _openStreamDetails,
                                   onProgressInteraction: () =>
                                       _showFooterBar(focusControls: false),

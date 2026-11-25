@@ -20,6 +20,53 @@ class _Filters extends VodCategoryFilterNotifier {
 }
 
 void main() {
+  testWidgets('embedded tabs respond after navigating down from the header',
+      (tester) async {
+    final subscription = Subscription(
+      id: 'sub',
+      name: 'Test',
+      type: SubscriptionType.m3u,
+      createdAt: DateTime(2020),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          activeSubscriptionProvider.overrideWithValue(subscription),
+          vodCategoryFilterProvider.overrideWith(_Filters.new),
+          vodCategoriesProvider.overrideWith((ref) async =>
+              const [MediaCategory(id: 'films', name: 'Action')]),
+          seriesCategoriesProvider.overrideWith((ref) async => []),
+          liveChannelsAllProvider.overrideWith((ref) async => []),
+        ],
+        child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: CategoryFilterScreen(embedded: true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Focus.of(tester.element(find.byIcon(Icons.refresh_rounded))).requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Category tab 2');
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Category tab 1');
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Category tab 0');
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Category tab 1');
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+  });
+
   testWidgets('category tabs follow D-pad left and right', (tester) async {
     final subscription = Subscription(
       id: 'sub',

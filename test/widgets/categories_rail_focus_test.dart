@@ -1,4 +1,7 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/widgets/categories_rail.dart';
@@ -162,5 +165,153 @@ void main() {
     expect(selected.color, isNot(Colors.transparent));
     expect((focused.border! as Border).top.color, isNot(Colors.transparent));
     expect(focused.boxShadow, isNotEmpty);
+  });
+
+  for (final width in [400.0, 800.0]) {
+    testWidgets('focus background covers a multiline category at width $width',
+        (tester) async {
+      tester.view.physicalSize = Size(width, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CategoriesRail(
+              categories: const [
+                MediaCategory(id: 'short', name: 'Tous'),
+                MediaCategory(
+                  id: 'long',
+                  name: 'DOCUMENTAIRES NATURE ET DECOUVERTE',
+                  count: 63,
+                ),
+              ],
+              selectedId: 'short',
+              focusSelectedOnMount: true,
+              onSelected: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      final tile = find.byKey(const ValueKey('long'));
+      final background =
+          find.descendant(of: tile, matching: find.byType(Container)).first;
+      final label = find.descendant(of: tile, matching: find.byType(RichText));
+      final paragraph = tester.renderObject<RenderParagraph>(label.first);
+      expect(
+          paragraph
+              .getBoxesForSelection(TextSelection(
+                baseOffset: 0,
+                extentOffset: paragraph.text.toPlainText().length,
+              ))
+              .length,
+          greaterThan(1));
+      final color =
+          (tester.widget<Container>(background).decoration! as BoxDecoration)
+              .color;
+      expect(
+        color,
+        Theme.of(tester.element(tile))
+            .colorScheme
+            .primary
+            .withValues(alpha: 0.08),
+      );
+      final box = tester.getRect(background);
+      final text = tester.getRect(label.first);
+      expect(text.top, greaterThanOrEqualTo(box.top));
+      expect(text.bottom, lessThanOrEqualTo(box.bottom));
+      expect(
+        tester.widget<InkWell>(
+          find.descendant(of: tile, matching: find.byType(InkWell)).first,
+        ).canRequestFocus,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('focus paints the whole multiline tile', (tester) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final boundaryKey = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+          body: RepaintBoundary(
+            key: boundaryKey,
+            child: CategoriesRail(
+              categories: const [
+                MediaCategory(id: 'short', name: 'Récemment', count: 19),
+                MediaCategory(
+                  id: 'long',
+                  name: 'FR | BOX-OFFICE 2025',
+                  count: 63,
+                ),
+              ],
+              selectedId: 'short',
+              focusSelectedOnMount: true,
+              onSelected: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final tile = find.byKey(const ValueKey('long'));
+    final background =
+        find.descendant(of: tile, matching: find.byType(Container)).first;
+    final label =
+        find.descendant(of: tile, matching: find.byType(RichText)).first;
+    final paragraph = tester.renderObject<RenderParagraph>(label);
+    final lines = paragraph.getBoxesForSelection(TextSelection(
+      baseOffset: 0,
+      extentOffset: paragraph.text.toPlainText().length,
+    ));
+    expect(lines.length, greaterThan(1));
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(boundaryKey),
+    );
+    final origin = tester.getTopLeft(find.byKey(boundaryKey));
+    final rect = tester.getRect(background);
+    final textOrigin = tester.getTopLeft(label);
+    final x = (rect.left - origin.dx + 10).round();
+    final yValues = [
+      (textOrigin.dy - origin.dy + lines.first.toRect().center.dy).round(),
+      (textOrigin.dy - origin.dy + lines.last.toRect().center.dy).round(),
+    ];
+
+    Future<List<List<int>>> pixels() async {
+      return (await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        final data = bytes!.buffer.asUint8List();
+        final result = [
+          for (final y in yValues)
+            data.sublist(
+                (y * image.width + x) * 4, (y * image.width + x) * 4 + 3),
+        ];
+        image.dispose();
+        return result;
+      }))!;
+    }
+
+    final before = await pixels();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    final after = await pixels();
+    for (var i = 0; i < yValues.length; i++) {
+      expect(
+        List.generate(3, (channel) => after[i][channel] - before[i][channel])
+            .reduce((a, b) => a > b ? a : b),
+        greaterThan(10),
+      );
+    }
+    expect(tester.takeException(), isNull);
   });
 }

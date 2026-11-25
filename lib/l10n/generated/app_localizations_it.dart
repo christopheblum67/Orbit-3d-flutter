@@ -64,6 +64,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get audioSyncTitle => 'Ritardo audio (sincronizzazione A/V)';
 
   @override
+  String get audioSyncLimitations =>
+      'Funziona solo con il lettore interno, audio PCM a 16 bit e Night Focus attivo. I valori negativi non vengono applicati.';
+
+  @override
   String startupResumeQuestion(String title, String position) {
     return 'Riprendere «$title» da $position?';
   }
@@ -2773,12 +2777,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get comingSoon => 'Prossimamente';
-
-  @override
-  String get settingsContact => 'Contatto';
-
-  @override
-  String get settingsActivateApp => 'Attiva app';
 
   @override
   String get confirmAndContinue => 'Conferma e continua';

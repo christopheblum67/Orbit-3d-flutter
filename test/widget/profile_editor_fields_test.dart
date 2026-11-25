@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/navigation/app_router.dart' as app;
 import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -16,6 +18,75 @@ class _Storage extends StorageService {
 }
 
 void main() {
+  testWidgets('system back on real edit route can cancel or discard changes',
+      (tester) async {
+    final existing = UserProfile(
+      id: 'existing',
+      firstName: 'Alex',
+      dateOfBirth: DateTime(1990),
+      gender: 'Non spécifié',
+      favoriteGenres: const [],
+    );
+    final storage = _Storage();
+    final router = GoRouter(routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, _) => Scaffold(
+          body: TextButton(
+            onPressed: () => context.push('/profile/edit/existing'),
+            child: const Text('OPEN'),
+          ),
+        ),
+      ),
+      app.router.configuration.routes
+          .whereType<GoRoute>()
+          .firstWhere((route) => route.path == '/profile/edit/:id'),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        storageServiceProvider.overrideWithValue(storage),
+        profilesProvider.overrideWith((ref) async => [existing]),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => existing),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.tap(find.text('OPEN'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byType(TextFormField),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(find.byType(TextFormField), 'Alex modifié');
+    tester.testTextInput.hide();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    final dialog = find.byType(AlertDialog);
+    final cancel = find.descendant(
+      of: dialog,
+      matching: find.widgetWithText(TextButton, 'Annuler'),
+    );
+    expect(Focus.of(tester.element(cancel)).hasFocus, isTrue);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(dialog, findsNothing);
+    expect(find.byType(ProfileEditScreen), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(find.text('OPEN'), findsOneWidget);
+    expect(storage.saved, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final scenario in ['creation', 'editing', 'preserving']) {
     final editing = scenario != 'creation';
     final preserving = scenario == 'preserving';

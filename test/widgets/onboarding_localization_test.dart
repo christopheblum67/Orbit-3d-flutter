@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/navigation/app_router.dart' as app;
+import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/features/onboarding/onboarding_screen.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -18,6 +20,74 @@ class _Storage extends StorageService {
 }
 
 void main() {
+  testWidgets('diagnostics pushed from a caller returns to that caller',
+      (tester) async {
+    final route = app.router.configuration.routes
+        .whereType<GoRoute>()
+        .singleWhere((route) => route.path == '/onboarding');
+    final router = GoRouter(routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, _) => Scaffold(
+          body: TextButton(
+            onPressed: () => context.push('/onboarding?from=settings'),
+            child: const Text('OPEN'),
+          ),
+        ),
+      ),
+      route,
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        deviceHardwareDetectionProvider.overrideWithValue(
+          () async => const HardwareSpecs(
+            deviceName: 'Test',
+            brand: 'Test',
+            isTv: false,
+            isPhysicalDevice: true,
+            totalRamMb: 4096,
+            lowRam: false,
+            sdkInt: 30,
+            connection: ConnectionKind.wifi,
+            recommendedProfile: DeviceProfile.standard,
+          ),
+        ),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.tap(find.text('OPEN'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ModalBackHandling), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('OPEN'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('first launch onboarding does not use settings back handling',
+      (tester) async {
+    final route = app.router.configuration.routes
+        .whereType<GoRoute>()
+        .singleWhere((route) => route.path == '/onboarding');
+    final router = GoRouter(initialLocation: '/onboarding', routes: [route]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pump();
+    expect(find.byType(OnboardingConfigScreen), findsOneWidget);
+    expect(find.byType(ModalBackHandling), findsNothing);
+  });
+
   for (final size in [const Size(960, 540), const Size(360, 720)]) {
     testWidgets('device profiles use available space at $size', (tester) async {
       tester.view.physicalSize = size;

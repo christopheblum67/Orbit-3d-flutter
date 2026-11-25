@@ -65,6 +65,32 @@ void main() {
     expect(series.episodes, isEmpty);
   });
 
+  test('reads seasons encoded as a list, including season zero', () async {
+    final service = XtreamSeriesDetailService(
+      buildApiUrl: (base, script, params) => base,
+      get: (url, {options}) async => Response<dynamic>(
+        requestOptions: RequestOptions(path: url),
+        data: utf8.encode(jsonEncode({
+          'info': {'name': 'Série'},
+          'episodes': [
+            [
+              {'id': '123', 'title': 'Spécial', 'episode_num': 1},
+            ],
+            [
+              {'id': '456', 'title': 'Épisode', 'episode_num': 1},
+            ],
+          ],
+        })),
+      ),
+    );
+
+    final series = await service.fetch('42', 'https://example.test', 'u', 'p');
+    expect(series.episodes.map((episode) => episode.season), [0, 1]);
+    expect(series.episodes.map((episode) => episode.id), ['123', '456']);
+    expect(series.episodes.every((episode) => episode.streamUrl.isNotEmpty),
+        isTrue);
+  });
+
   test('preserves explicit failures for empty and invalid responses', () async {
     for (final data in [<dynamic>[], 'invalid']) {
       final service = XtreamSeriesDetailService(

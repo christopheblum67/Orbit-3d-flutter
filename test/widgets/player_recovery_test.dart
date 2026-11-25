@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_footer_bars.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -219,9 +220,14 @@ void main() {
       addTearDown(monitor.dispose);
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final audioConfigs = <Map<Object?, Object?>>[];
       for (final name in ['orbit/night_focus', 'orbit/player_config']) {
-        messenger.setMockMethodCallHandler(
-            MethodChannel(name), (_) async => null);
+        messenger.setMockMethodCallHandler(MethodChannel(name), (call) async {
+          if (name == 'orbit/night_focus' && call.arguments is Map) {
+            audioConfigs.add(Map<Object?, Object?>.from(call.arguments as Map));
+          }
+          return null;
+        });
         addTearDown(() =>
             messenger.setMockMethodCallHandler(MethodChannel(name), null));
       }
@@ -250,6 +256,42 @@ void main() {
       expect(video.calls, contains('play:1'));
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pump();
+      expect(find.byType(ContentFooterBar), findsOneWidget);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(PlayerScreen)),
+      );
+      final syncButton = find.byTooltip('Décalage audio (synchronisation A/V)');
+      expect(syncButton, findsNothing);
+      await container
+          .read(advancedSettingsProvider.notifier)
+          .setNightFocus(true);
+      await container
+          .read(advancedSettingsProvider.notifier)
+          .setNightFocusAudioShiftMs(50);
+      await tester.pump();
+      expect(syncButton, findsOneWidget);
+      await tester.ensureVisible(syncButton);
+      Focus.of(tester.element(find.byIcon(Icons.sync_rounded))).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(AudioControlsSheet), findsOneWidget);
+      expect(find.byType(ContentFooterBar), findsNothing);
+      final focused =
+          find.byWidget(FocusManager.instance.primaryFocus!.context!.widget);
+      expect(find.descendant(of: focused, matching: find.byTooltip('-50 ms')),
+          findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pump();
+      expect(
+          container.read(advancedSettingsProvider).nightFocusAudioShiftMs, 100);
+      expect(audioConfigs.last['audioDelayMs'], 100);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(AudioControlsSheet), findsNothing);
       expect(find.byType(ContentFooterBar), findsOneWidget);
       await tester.tap(find.byType(FooterStreamDetails));
       await tester.pump();

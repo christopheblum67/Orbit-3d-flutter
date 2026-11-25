@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/navigation/app_router.dart' as app_routes;
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
+import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/core/utils/device_info.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/settings/unified_settings_screen.dart';
+import 'package:orbit_3d_flutter/features/onboarding/onboarding_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/cloud_account_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/category_filter_screen.dart';
@@ -74,6 +78,159 @@ class _CloudSync extends EncryptedActivitySyncNotifier {
 }
 
 void main() {
+  testWidgets('device diagnostics returns to settings with system back',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final onboardingRoute = app_routes.router.configuration.routes
+        .whereType<GoRoute>()
+        .singleWhere((route) => route.path == '/onboarding');
+    final router = GoRouter(
+      initialLocation: '/settings',
+      routes: [
+        GoRoute(
+          path: '/settings',
+          builder: (_, __) => const UnifiedSettingsScreen(),
+        ),
+        onboardingRoute,
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+        storageServiceProvider.overrideWithValue(_SettingsStorage()),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+        deviceHardwareDetectionProvider.overrideWithValue(
+          () async => const HardwareSpecs(
+            deviceName: 'Test',
+            brand: 'Test',
+            isTv: true,
+            isPhysicalDevice: true,
+            totalRamMb: 4096,
+            lowRam: false,
+            sdkInt: 30,
+            connection: ConnectionKind.wifi,
+            recommendedProfile: DeviceProfile.standard,
+          ),
+        ),
+      ],
+      child: MaterialApp.router(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final l = lookupAppLocalizations(const Locale('fr'));
+    await tester.tap(find.text(l.accountDeviceProfile));
+    await tester.pumpAndSettle();
+    expect(find.byType(OnboardingConfigScreen), findsOneWidget);
+    expect(find.byType(ModalBackHandling), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.path, '/settings');
+    expect(find.text(l.accountDeviceProfile), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'system back closes preference menus before returning to settings',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferencesRoute = app_routes.router.configuration.routes
+        .whereType<GoRoute>()
+        .singleWhere((route) => route.path == '/profile/preferences');
+    final router = GoRouter(
+      initialLocation: '/settings',
+      routes: [
+        GoRoute(
+          path: '/settings',
+          builder: (_, __) => const UnifiedSettingsScreen(),
+        ),
+        preferencesRoute,
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+        storageServiceProvider.overrideWithValue(_SettingsStorage()),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+      ],
+      child: MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final l = lookupAppLocalizations(const Locale('en'));
+    await tester.tap(find.text(l.accountPreferences));
+    await tester.pumpAndSettle();
+    expect(
+        router.routeInformationProvider.value.uri.path, '/profile/preferences');
+
+    await tester.tap(find.byType(DropdownButton<String>).first);
+    await tester.pumpAndSettle();
+    expect(find.text(l.preferenceLight), findsWidgets);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(
+        router.routeInformationProvider.value.uri.path, '/profile/preferences');
+    expect(find.text(l.preferenceLight), findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.path, '/settings');
+    expect(find.text(l.accountPreferences), findsOneWidget);
+  });
+
+  testWidgets('system back from pushed preferences returns to the caller',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferencesRoute = app_routes.router.configuration.routes
+        .whereType<GoRoute>()
+        .singleWhere((route) => route.path == '/profile/preferences');
+    final router = GoRouter(
+      initialLocation: '/origin',
+      routes: [
+        GoRoute(
+          path: '/origin',
+          builder: (_, __) => const Scaffold(body: Text('ORIGIN')),
+        ),
+        GoRoute(
+          path: '/settings',
+          builder: (_, __) => const Scaffold(body: Text('SETTINGS')),
+        ),
+        preferencesRoute,
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        storageServiceProvider.overrideWithValue(_SettingsStorage()),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+      ],
+      child: MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    router.push('/profile/preferences');
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('ORIGIN'), findsOneWidget);
+  });
+
   testWidgets('read me opens contact information and retains legal access',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -113,10 +270,41 @@ void main() {
   });
 
   for (final config in [
-    (size: const Size(360, 720), tv: false, manual: false, expected: 60.0),
-    (size: const Size(640, 360), tv: false, manual: true, expected: 108.0),
-    (size: const Size(960, 540), tv: true, manual: false, expected: 162.0),
-    (size: const Size(540, 960), tv: true, manual: false, expected: 76.0),
+    (
+      size: const Size(360, 720),
+      tv: false,
+      manual: false,
+      maximum: 78.0,
+      minimum: 60.0
+    ),
+    (
+      size: const Size(640, 360),
+      tv: false,
+      manual: true,
+      maximum: 79.2,
+      minimum: 70.0
+    ),
+    (
+      size: const Size(960, 540),
+      tv: true,
+      manual: false,
+      maximum: 160.0,
+      minimum: 24.0
+    ),
+    (
+      size: const Size(1920, 1080),
+      tv: true,
+      manual: false,
+      maximum: 160.0,
+      minimum: 24.0
+    ),
+    (
+      size: const Size(540, 960),
+      tv: true,
+      manual: false,
+      maximum: 98.8,
+      minimum: 76.0
+    ),
   ]) {
     testWidgets('settings icons adapt to ${config.size}, TV=${config.tv}',
         (tester) async {
@@ -169,13 +357,18 @@ void main() {
             (widget.decoration! as BoxDecoration).shape == BoxShape.circle),
       );
       final diameter = tester.getSize(circle).width;
-      expect(diameter, lessThanOrEqualTo(config.expected));
-      expect(diameter, greaterThanOrEqualTo(config.tv ? 65 : 48));
+      expect(diameter, lessThanOrEqualTo(config.maximum));
+      expect(diameter, greaterThanOrEqualTo(config.minimum));
       if (config.size.width > config.size.height) {
-        expect(diameter, closeTo(tester.getSize(profile).width - 6, 0.1));
+        expect(diameter, lessThanOrEqualTo(tester.getSize(profile).width - 6));
         expect(diameter, greaterThan(52));
-      } else if (!config.tv) {
-        expect(diameter, closeTo(config.expected, 0.1));
+      }
+      final fontSize =
+          tester.widget<Text>(find.text('User profiles')).style!.fontSize!;
+      if (config.tv && config.size.width > config.size.height) {
+        expect(fontSize, inInclusiveRange(8, 12));
+      } else {
+        expect(fontSize, closeTo(15.6, 0.01));
       }
       final image = find.descendant(of: profile, matching: find.byType(Image));
       expect(tester.getSize(image).width, closeTo(diameter * 0.65, 0.1));
@@ -183,9 +376,197 @@ void main() {
           greaterThanOrEqualTo(tester.getRect(profile).left));
       expect(tester.getRect(circle).right,
           lessThanOrEqualTo(tester.getRect(profile).right));
+      final groupTitle = find.text(
+        lookupAppLocalizations(const Locale('en'))
+            .sectionAccountProfile
+            .toUpperCase(),
+      );
+      final viewport = find
+          .descendant(
+            of: find.byType(TvSafeArea),
+            matching: find.byType(SingleChildScrollView),
+          )
+          .first;
+      expect(tester.getRect(groupTitle).top,
+          greaterThanOrEqualTo(tester.getRect(viewport).top));
       expect(tester.takeException(), isNull);
     });
   }
+
+  for (final size in [
+    const Size(640, 360),
+    const Size(960, 540),
+    const Size(1920, 1080),
+  ]) {
+    for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
+      testWidgets('TV settings fit the viewport at $size in $language',
+          (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final controller = TvModeController();
+        await controller.updateFromDetection(const DeviceDetectionResult(
+          deviceType: DeviceType.tv,
+          isTv: true,
+          confidence: 1,
+        ));
+        addTearDown(controller.dispose);
+        final router = GoRouter(routes: [
+          GoRoute(path: '/', builder: (_, __) => const UnifiedSettingsScreen()),
+        ]);
+        addTearDown(router.dispose);
+        await tester.pumpWidget(ProviderScope(
+          overrides: [
+            tvModeControllerProvider.overrideWithValue(controller),
+            deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+            activeSubscriptionProvider.overrideWith((ref) => null),
+            currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+          ],
+          child: MaterialApp.router(
+            locale: Locale(language),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+          ),
+        ));
+        await tester.pumpAndSettle();
+        final l = lookupAppLocalizations(Locale(language));
+        final viewport = find
+            .descendant(
+              of: find.byType(TvSafeArea),
+              matching: find.byType(SingleChildScrollView),
+            )
+            .first;
+        final bounds = tester.getRect(viewport);
+        final scroll = tester.state<ScrollableState>(find
+            .descendant(
+              of: viewport,
+              matching: find.byType(Scrollable),
+            )
+            .first);
+        expect(scroll.position.maxScrollExtent, lessThanOrEqualTo(0.1));
+        for (final title in [
+          l.accountProfiles,
+          l.accountSubscriptions,
+          l.accountPreferences,
+          l.accountDeviceProfile,
+          l.enginesTile,
+          l.sectionBackup,
+          l.updateTitle,
+          l.sectionAccessibility,
+          l.legalNotice,
+          l.resetApp,
+        ]) {
+          final label = find.text(title);
+          expect(label, findsOneWidget);
+          final tile =
+              find.ancestor(of: label, matching: find.byType(TvFocus)).first;
+          final rect = tester.getRect(tile);
+          expect(rect.left, greaterThanOrEqualTo(bounds.left - 0.1));
+          expect(rect.right, lessThanOrEqualTo(bounds.right + 0.1));
+          expect(rect.top, greaterThanOrEqualTo(bounds.top - 0.1));
+          expect(rect.bottom, lessThanOrEqualTo(bounds.bottom + 0.1));
+        }
+        final accountGroup =
+            find.byKey(ValueKey('settings-group-${l.sectionAccountProfile}'));
+        final groupBounds = tester.getRect(accountGroup);
+        expect(groupBounds.width, closeTo(bounds.width - 16, 0.1));
+        expect(tester.takeException(), isNull);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
+  }
+
+  testWidgets('audio calibration keeps, adjusts and saves the current offset',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      AdvancedSettings.kNightFocusAudioShiftMs: 125,
+    });
+    final tvMode = TvModeNotifier()..enable();
+    addTearDown(tvMode.dispose);
+    tester.view.physicalSize = const Size(640, 360);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final container = ProviderContainer(overrides: [
+      tvModeNotifierProvider.overrideWithValue(tvMode),
+      deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+      activeSubscriptionProvider.overrideWith((ref) => null),
+      currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(advancedSettingsProvider.notifier).load();
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const UnifiedSettingsScreen()),
+    ]);
+    addTearDown(router.dispose);
+    final l = lookupAppLocalizations(const Locale('en'));
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text(l.sectionAccessibility));
+    await tester.tap(find.text(l.sectionAccessibility));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text(l.manualAvCalibration));
+    await tester.tap(find.text(l.manualAvCalibration));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(find.byType(Slider)).value, 125);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(find.byType(Slider)).value, 175);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(
+        container.read(advancedSettingsProvider).nightFocusAudioShiftMs, 125);
+    await tester.tap(find.text(l.manualAvCalibration));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(
+        container.read(advancedSettingsProvider).nightFocusAudioShiftMs, 175);
+    expect(
+        (await SharedPreferences.getInstance())
+            .getInt(AdvancedSettings.kNightFocusAudioShiftMs),
+        175);
+    await container
+        .read(advancedSettingsProvider.notifier)
+        .setNightFocusAudioShiftMs(-2475);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l.manualAvCalibration));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(find.byType(Slider)).value, -2475);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(find.byType(Slider)).value, -2525);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(
+        container.read(advancedSettingsProvider).nightFocusAudioShiftMs, -2475);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final size in [const Size(360, 720), const Size(640, 360)]) {
     for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
@@ -258,8 +639,31 @@ void main() {
           if (label == l.settingsCategoryFilters) {
             expect(find.byType(CategoryFilterScreen), findsOneWidget);
             expect(find.text('Test'), findsWidgets);
+            final filterScreen = find.byType(CategoryFilterScreen);
+            final refresh = find.descendant(
+              of: filterScreen,
+              matching: find.byIcon(Icons.refresh_rounded),
+            );
+            Focus.of(tester.element(refresh)).requestFocus();
+            await tester.pumpAndSettle();
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+            await tester.pumpAndSettle();
+            expect(FocusManager.instance.primaryFocus?.debugLabel,
+                'Category tab 2');
+            await tester.sendKeyEvent(language == 'ar'
+                ? LogicalKeyboardKey.arrowRight
+                : LogicalKeyboardKey.arrowLeft);
+            await tester.pumpAndSettle();
+            expect(FocusManager.instance.primaryFocus?.debugLabel,
+                'Category tab 1');
+            final categoryTabs = tester.widget<TabBar>(find.descendant(
+              of: filterScreen,
+              matching: find.byType(TabBar),
+            ));
+            expect(categoryTabs.controller!.index, 1);
+            expect(find.text('Action'), findsOneWidget);
             final films = find.descendant(
-              of: find.byType(CategoryFilterScreen),
+              of: filterScreen,
               matching: find.text(l.films),
             );
             await tester.tap(films.first);
@@ -464,7 +868,7 @@ void main() {
     expect(sync.syncCount, 1);
   });
 
-  testWidgets('future advanced actions explain they are not yet available',
+  testWidgets('placeholder contact and activation actions are removed',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(960, 1080);
@@ -495,30 +899,10 @@ void main() {
     final l = lookupAppLocalizations(const Locale('en'));
     expect(find.text(l.cloudSyncProfileHelp), findsNothing);
     expect(find.byIcon(Icons.settings_input_component), findsNothing);
-    for (final title in ['Contact', 'Activate app']) {
-      await tester.ensureVisible(find.text(title));
-      await tester.tap(find.text(title));
-      await tester.pumpAndSettle();
-      expect(
-          find.descendant(
-            of: find.byType(SnackBar),
-            matching: find.text('Coming soon'),
-          ),
-          findsOneWidget);
-      ScaffoldMessenger.of(tester.element(find.byType(UnifiedSettingsScreen)))
-          .hideCurrentSnackBar();
-      await tester.pumpAndSettle();
-    }
+    expect(find.text('Contact'), findsNothing);
+    expect(find.text('Activate app'), findsNothing);
+    expect(find.text(l.legalNotice), findsOneWidget);
     expect(tester.takeException(), isNull);
-  });
-
-  test('future action labels are available in all supported languages', () {
-    for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
-      final l = lookupAppLocalizations(Locale(language));
-      expect(l.settingsContact, isNotEmpty);
-      expect(l.settingsActivateApp, isNotEmpty);
-      expect(l.comingSoon, isNotEmpty);
-    }
   });
 
   for (final size in [
@@ -641,28 +1025,24 @@ void main() {
           findsOneWidget);
       expect(find.descendant(of: maintenance, matching: find.text(l.resetApp)),
           findsNothing);
-      final contactTile = find
-          .ancestor(
-              of: find.text(l.settingsContact), matching: find.byType(TvFocus))
-          .first;
       final legalTile = find
           .ancestor(
               of: find.text(l.legalNotice), matching: find.byType(TvFocus))
           .first;
-      final contactFocus = Focus.of(tester.element(find
-          .descendant(of: contactTile, matching: find.byType(AnimatedBuilder))
+      final resetTile = find
+          .ancestor(of: find.text(l.resetApp), matching: find.byType(TvFocus))
+          .first;
+      final legalFocus = Focus.of(tester.element(find
+          .descendant(of: legalTile, matching: find.byType(AnimatedBuilder))
           .first));
-      contactFocus.requestFocus();
+      legalFocus.requestFocus();
       await tester.pumpAndSettle();
-      contactFocus.nextFocus();
+      legalFocus.nextFocus();
       await tester.pumpAndSettle();
       expect(
           FocusManager.instance.primaryFocus?.context
               ?.findAncestorWidgetOfExactType<TvFocus>(),
-          same(tester.widget<TvFocus>(legalTile)));
-      final resetTile = find
-          .ancestor(of: find.text(l.resetApp), matching: find.byType(TvFocus))
-          .first;
+          same(tester.widget<TvFocus>(resetTile)));
       final secret = find
           .ancestor(
               of: find.byKey(const ValueKey('hidden-advanced-entry')),
@@ -722,13 +1102,44 @@ void main() {
       expect(find.text(l.dnsProvider), findsOneWidget);
       expect(find.text(l.tabNetwork), findsOneWidget);
       expect(find.text(l.cloudflareReset), findsNothing);
-      await tester.ensureVisible(find.byType(DropdownButton<String>));
-      await tester.tap(find.byType(DropdownButton<String>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('8.8.8.8 (Google DoH)').last);
+      final google = find.text('8.8.8.8 (Google DoH)');
+      final cloudflare = find.text('1.1.1.1 (Cloudflare DoH)');
+      final system = find.text(l.settingsSystemAutomatic);
+      CheckboxListTile dnsTile(Finder label) => tester.widget(
+            find.ancestor(of: label, matching: find.byType(CheckboxListTile)),
+          );
+      expect(dnsTile(cloudflare).value, isTrue);
+      expect(dnsTile(google).value, isFalse);
+      expect(dnsTile(system).value, isFalse);
+      await tester.ensureVisible(google);
+      await tester.tap(google);
       await tester.pumpAndSettle();
       expect(container.read(advancedSettingsProvider).dnsProvider,
           '8.8.8.8 (Google DoH)');
+      expect(dnsTile(cloudflare).value, isFalse);
+      expect(dnsTile(google).value, isTrue);
+      await tester.tap(google);
+      await tester.pumpAndSettle();
+      expect(dnsTile(google).value, isTrue);
+      expect(
+          (await SharedPreferences.getInstance())
+              .getString(AdvancedSettings.kDnsProvider),
+          '8.8.8.8 (Google DoH)');
+      await tester.ensureVisible(system);
+      final systemFocus =
+          find.ancestor(of: system, matching: find.byType(TvFocus)).first;
+      Focus.of(tester.element(find
+              .descendant(
+                  of: systemFocus, matching: find.byType(AnimatedBuilder))
+              .first))
+          .requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(dnsTile(system).value, isTrue);
+      expect(dnsTile(google).value, isFalse);
+      expect(container.read(advancedSettingsProvider).dnsProvider,
+          'Automatique (Système)');
       expect(tester.takeException(), isNull);
     });
   }
@@ -780,8 +1191,6 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
       expect(find.text('8.8.8.8 (Google DoH)'), findsWidgets);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       await tester.ensureVisible(settings);
@@ -971,11 +1380,10 @@ void main() {
     final l = lookupAppLocalizations(const Locale('en'));
     for (final entry in {
       l.sectionAccessibility: 'assets/icons/settings-accessibility.png',
-      l.settingsActivateApp: 'assets/icons/settings-activate.png',
       l.resetApp: 'assets/icons/settings-reset.png',
       l.accountPreferences: 'assets/icons/settings-preferences.png',
       l.sectionBackup: 'assets/icons/settings-backup.png',
-      l.settingsContact: 'assets/icons/settings-contact.png',
+      l.legalNotice: 'assets/icons/settings-contact.png',
     }.entries) {
       final tile = find
           .ancestor(
@@ -988,18 +1396,7 @@ void main() {
       );
       expect((image.image as AssetImage).assetName, entry.value);
     }
-    for (final title in [l.legalNotice, l.clearCaches]) {
-      final tile = find
-          .ancestor(
-            of: find.text(title),
-            matching: find.byType(TvFocus),
-          )
-          .first;
-      expect(find.descendant(of: tile, matching: find.byType(Image)),
-          findsNothing);
-      expect(
-          find.descendant(of: tile, matching: find.byType(Icon)), findsNothing);
-    }
+    expect(find.text(l.clearCaches), findsNothing);
     for (final title in [
       l.sectionAccountProfile,
       l.sectionDiagnostics,
@@ -1014,8 +1411,9 @@ void main() {
         find.byKey(ValueKey('settings-group-${l.sectionAccountProfile}'));
     final diagnosticGroup =
         find.byKey(ValueKey('settings-group-${l.sectionDiagnostics}'));
-    expect(
-        tester.getRect(accountGroup).top, tester.getRect(diagnosticGroup).top);
+    final accountRect = tester.getRect(accountGroup);
+    final diagnosticRect = tester.getRect(diagnosticGroup);
+    expect(accountRect.overlaps(diagnosticRect), isFalse);
     expect(
         find.descendant(
             of: diagnosticGroup, matching: find.text(l.enginesTile)),
@@ -1111,8 +1509,6 @@ void main() {
           find.text(l.legalNotice),
           find.text(l.sectionAccessibility),
           find.text(l.resetApp),
-          find.text(l.settingsContact),
-          find.text(l.settingsActivateApp),
           find.byKey(const ValueKey('hidden-advanced-entry')),
         ];
         for (final start in starts) {

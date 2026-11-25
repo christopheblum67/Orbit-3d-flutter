@@ -99,79 +99,11 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Future<bool> _confirmDiscard() async {
-    final l = AppLocalizations.of(context);
-    final cancelFocus = FocusNode();
-    final confirmFocus = FocusNode();
-
-    void requestFocus(FocusNode focus) {
-      if (mounted) {
-        FocusScope.of(context).requestFocus(focus);
-      }
-    }
-
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l.exitWithoutSaving),
-        content: Text(l.profileDiscardHelp),
-        actions: [
-          Focus(
-            autofocus: true,
-            focusNode: cancelFocus,
-            onKeyEvent: (node, event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                      event.logicalKey == LogicalKeyboardKey.select ||
-                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                Navigator.of(dialogContext).pop(false);
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-                requestFocus(confirmFocus);
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            },
-            child: TextButton(
-              autofocus: true,
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(l.cancel),
-            ),
-          ),
-          Focus(
-            focusNode: confirmFocus,
-            onKeyEvent: (node, event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                      event.logicalKey == LogicalKeyboardKey.select ||
-                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                Navigator.of(dialogContext).pop(true);
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-                requestFocus(cancelFocus);
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            },
-            child: FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-              child: Text(l.profileLeave),
-            ),
-          ),
-        ],
-      ),
+      builder: (_) => const _DiscardProfileDialog(),
     );
-    cancelFocus.dispose();
-    confirmFocus.dispose();
     return result ?? false;
   }
 
@@ -942,6 +874,76 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DiscardProfileDialog extends StatefulWidget {
+  const _DiscardProfileDialog();
+
+  @override
+  State<_DiscardProfileDialog> createState() => _DiscardProfileDialogState();
+}
+
+class _DiscardProfileDialogState extends State<_DiscardProfileDialog> {
+  final _cancelFocus = FocusNode();
+  final _confirmFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _cancelFocus.dispose();
+    _confirmFocus.dispose();
+    super.dispose();
+  }
+
+  Widget _directionalButton({
+    required FocusNode target,
+    required Widget child,
+  }) {
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: (_, event) {
+        if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
+            (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+          target.requestFocus();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: child,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l.exitWithoutSaving),
+      content: Text(l.profileDiscardHelp),
+      actions: [
+        _directionalButton(
+          target: _confirmFocus,
+          child: TextButton(
+            focusNode: _cancelFocus,
+            autofocus: true,
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l.cancel),
+          ),
+        ),
+        _directionalButton(
+          target: _cancelFocus,
+          child: FilledButton(
+            focusNode: _confirmFocus,
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(l.profileLeave),
+          ),
+        ),
+      ],
     );
   }
 }

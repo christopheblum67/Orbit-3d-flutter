@@ -843,6 +843,7 @@ class _VodTile extends ConsumerWidget {
 
     return TvFocus(
       onActivate: onOpen,
+      fillFocusBackground: true,
       child: MediaCard(
         ratingAboveAffinity: true,
         title: movie.title,

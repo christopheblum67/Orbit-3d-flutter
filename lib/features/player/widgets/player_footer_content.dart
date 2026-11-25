@@ -30,6 +30,7 @@ class PlayerFooterContent extends StatelessWidget {
     required this.onSeekBack30,
     required this.onSeekForward30,
     required this.onToggleNightFocus,
+    this.onAudioSync,
     required this.onDetailsPressed,
     required this.onProgressInteraction,
   });
@@ -56,6 +57,7 @@ class PlayerFooterContent extends StatelessWidget {
   final VoidCallback onSeekBack30;
   final VoidCallback onSeekForward30;
   final VoidCallback onToggleNightFocus;
+  final VoidCallback? onAudioSync;
   final VoidCallback onDetailsPressed;
   final VoidCallback onProgressInteraction;
 
@@ -85,6 +87,7 @@ class PlayerFooterContent extends StatelessWidget {
           castButton: castButton,
           streamDetails: streamDetails,
           onToggleNightFocus: onToggleNightFocus,
+          onAudioSync: onAudioSync,
         ),
       PlaybackContentType.replay => LiveFooterBar(
           channel: channel,
@@ -106,6 +109,7 @@ class PlayerFooterContent extends StatelessWidget {
           castButton: castButton,
           streamDetails: streamDetails,
           onToggleNightFocus: onToggleNightFocus,
+          onAudioSync: onAudioSync,
           onProgressInteraction: onProgressInteraction,
         ),
       PlaybackContentType.vod || PlaybackContentType.series => VodFooterBar(
@@ -126,6 +130,7 @@ class PlayerFooterContent extends StatelessWidget {
           castButton: castButton,
           streamDetails: streamDetails,
           onToggleNightFocus: onToggleNightFocus,
+          onAudioSync: onAudioSync,
           onProgressInteraction: onProgressInteraction,
         ),
     };

@@ -46,6 +46,9 @@ void main() {
                 .style!
                 .fontSize,
             lessThanOrEqualTo(12));
+        await tester.drag(find.byType(ListView), const Offset(0, -1000));
+        await tester.pumpAndSettle();
+        expect(find.text(l.audioSyncLimitations), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }

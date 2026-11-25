@@ -119,6 +119,23 @@ Widget _fbNightFocus({
   );
 }
 
+class _FooterActions extends StatelessWidget {
+  const _FooterActions({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: IntrinsicWidth(child: Row(children: children)),
+          ),
+        ),
+      );
+}
+
 /// Petit badge numéro de chaîne / étiquette genre (#num ou chip métadonnée).
 class _ChannelBadge extends StatelessWidget {
   const _ChannelBadge({
@@ -204,6 +221,7 @@ class LiveFooterBar extends ConsumerWidget {
     this.castButton,
     required this.streamDetails,
     required this.onToggleNightFocus,
+    this.onAudioSync,
     this.onProgressInteraction,
   });
 
@@ -226,6 +244,7 @@ class LiveFooterBar extends ConsumerWidget {
   final Widget? castButton;
   final FooterStreamDetails streamDetails;
   final VoidCallback onToggleNightFocus;
+  final VoidCallback? onAudioSync;
   final VoidCallback? onProgressInteraction;
 
   @override
@@ -241,6 +260,8 @@ class LiveFooterBar extends ConsumerWidget {
     final channelName = currentChannel?.name ?? fallbackTitle;
     final canZap = total > 1;
     final player = controller;
+    final showAudioSync = ref.watch(
+        advancedSettingsProvider.select((s) => s.nightFocusAudioShiftMs != 0));
     final hasEpg =
         currentChannel != null && (nowProgram != null || nextProgram != null);
     return Column(
@@ -317,7 +338,7 @@ class LiveFooterBar extends ConsumerWidget {
           ),
         ],
         const SizedBox(height: 10),
-        Row(
+        _FooterActions(
           children: [
             _fbIcon(Icons.arrow_back_rounded, onExit,
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip),
@@ -357,6 +378,9 @@ class LiveFooterBar extends ConsumerWidget {
               ),
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref, l: l),
+            if (showAudioSync && onAudioSync != null)
+              _fbIcon(Icons.sync_rounded, onAudioSync,
+                  tooltip: l.audioSyncTitle),
             if (onPip != null)
               _fbIcon(
                 Icons.picture_in_picture_alt_rounded,
@@ -395,6 +419,7 @@ class VodFooterBar extends ConsumerWidget {
     this.castButton,
     required this.streamDetails,
     required this.onToggleNightFocus,
+    this.onAudioSync,
     required this.onProgressInteraction,
   });
 
@@ -415,6 +440,7 @@ class VodFooterBar extends ConsumerWidget {
   final Widget? castButton;
   final FooterStreamDetails streamDetails;
   final VoidCallback onToggleNightFocus;
+  final VoidCallback? onAudioSync;
   final VoidCallback onProgressInteraction;
 
   String? get _subLine {
@@ -430,6 +456,8 @@ class VodFooterBar extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final showRating = rating != null && rating! > 0;
+    final showAudioSync = ref.watch(
+        advancedSettingsProvider.select((s) => s.nightFocusAudioShiftMs != 0));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -491,7 +519,7 @@ class VodFooterBar extends ConsumerWidget {
           onInteraction: onProgressInteraction,
         ),
         const SizedBox(height: 8),
-        Row(
+        _FooterActions(
           children: [
             _fbIcon(Icons.arrow_back_rounded, onExit,
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip),
@@ -516,6 +544,9 @@ class VodFooterBar extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref, l: l),
+            if (showAudioSync && onAudioSync != null)
+              _fbIcon(Icons.sync_rounded, onAudioSync,
+                  tooltip: l.audioSyncTitle),
             if (onPip != null)
               _fbIcon(
                 Icons.picture_in_picture_alt_rounded,

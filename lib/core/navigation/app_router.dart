@@ -138,7 +138,13 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/onboarding',
-      builder: (context, state) => const OnboardingConfigScreen(),
+      builder: (context, state) =>
+          state.uri.queryParameters['from'] == 'settings'
+              ? const ModalBackHandling(
+                  meta: RouteMeta.popOrFallback('/settings'),
+                  child: OnboardingConfigScreen(),
+                )
+              : const OnboardingConfigScreen(),
     ),
     GoRoute(
       path: '/profiles',
@@ -170,7 +176,7 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/profile/preferences',
       builder: (context, state) => const ModalBackHandling(
-        meta: RouteMeta.pop(),
+        meta: RouteMeta.popOrFallback('/settings'),
         child: ProfilePreferencesScreen(),
       ),
     ),

@@ -64,6 +64,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get audioSyncTitle => 'Décalage audio (synchronisation A/V)';
 
   @override
+  String get audioSyncLimitations =>
+      'Lecteur interne, audio PCM 16 bits et Night Focus actif uniquement. Les valeurs négatives ne sont pas appliquées.';
+
+  @override
   String startupResumeQuestion(String title, String position) {
     return 'Reprendre « $title » à $position ?';
   }
@@ -2778,12 +2782,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get comingSoon => 'Bientôt disponible';
-
-  @override
-  String get settingsContact => 'Contact';
-
-  @override
-  String get settingsActivateApp => 'Activer l’application';
 
   @override
   String get confirmAndContinue => 'Valider et continuer';

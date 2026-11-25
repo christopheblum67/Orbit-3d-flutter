@@ -159,6 +159,8 @@ public final class NightFocusAudioProcessor extends BaseAudioProcessor {
       @NonNull AudioProcessor.AudioFormat inputAudioFormat)
       throws AudioProcessor.UnhandledAudioFormatException {
     lastInputFormat = inputAudioFormat;
+    sampleRate = inputAudioFormat.sampleRate;
+    channelCount = inputAudioFormat.channelCount;
     if (!NightFocusDspConfig.enabled || inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
       processingEnabled = false;
       configured = true;
@@ -167,8 +169,6 @@ public final class NightFocusAudioProcessor extends BaseAudioProcessor {
       return inputAudioFormat;
     }
     processingEnabled = true;
-    sampleRate = inputAudioFormat.sampleRate;
-    channelCount = inputAudioFormat.channelCount;
     encoding = inputAudioFormat.encoding;
     recomputeCoefficients();
     normalizationActive = NightFocusDspConfig.volumeNormalization;
@@ -345,7 +345,8 @@ public final class NightFocusAudioProcessor extends BaseAudioProcessor {
 
     gain = Math.pow(10.0, NightFocusDspConfig.vocalGainDb / 20.0);
 
-    int newDelay = (int) ((long) NightFocusDspConfig.audioDelayMs * fs / 1000);
+    int newDelay =
+        (int) ((long) NightFocusDspConfig.audioDelayMs * sampleRate / 1000) * channelCount;
     if (newDelay != delaySamples) {
       // Reset uniquement si le delai revient a 0 : sinon on repositionne les
       // index sans effacer le contenu (pas de trou de silence en fin de flux).

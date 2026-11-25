@@ -10,6 +10,40 @@ import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
+    testWidgets('side options fit the two-by-two grid in $language',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          locale: Locale(language),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showPlayerEngineConfigSheet(context),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final grid = tester.getRect(find.byKey(const ValueKey('engine-grid')));
+      final options =
+          tester.getRect(find.byKey(const ValueKey('engine-side-options')));
+      expect(options.bottom, lessThanOrEqualTo(grid.bottom),
+          reason: 'grid=$grid options=$options');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final language in ['en', 'ar']) {
     testWidgets('engine grid follows horizontal D-pad direction in $language',
         (tester) async {
@@ -100,9 +134,95 @@ void main() {
           : LogicalKeyboardKey.arrowLeft);
       await tester.pumpAndSettle();
       expect(live.focusNode!.hasFocus, isTrue);
+
+      final expectedDown = [1, 4, 5];
+      for (final index in expectedDown) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DropdownButton<PlayerEngine>>(dropdowns.at(index))
+              .focusNode!
+              .hasFocus,
+          isTrue,
+        );
+      }
+      await tester.sendKeyEvent(language == 'ar'
+          ? LogicalKeyboardKey.arrowLeft
+          : LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<DropdownButton<PlayerEngine>>(dropdowns.at(7))
+            .focusNode!
+            .hasFocus,
+        isTrue,
+      );
+      for (final index in [6, 3, 2]) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DropdownButton<PlayerEngine>>(dropdowns.at(index))
+              .focusNode!
+              .hasFocus,
+          isTrue,
+        );
+      }
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('moving between Live and VOD keeps the help text visible',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(800, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showPlayerEngineConfigSheet(context),
+              child: const Text('Ouvrir'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Ouvrir'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    final help = find
+        .text(lookupAppLocalizations(const Locale('fr')).engineSelectionHelp);
+    final scroll = tester.widget<SingleChildScrollView>(
+      find.byType(SingleChildScrollView).first,
+    );
+    final top = tester.getTopLeft(help).dy;
+    final offset = scroll.controller!.offset;
+    for (final key in [
+      LogicalKeyboardKey.arrowRight,
+      LogicalKeyboardKey.arrowLeft,
+    ]) {
+      await tester.sendKeyEvent(key);
+      await tester.pumpAndSettle();
+      expect(scroll.controller!.offset, offset);
+      expect(tester.getTopLeft(help).dy, top);
+      expect(
+        tester.getRect(help).top,
+        greaterThanOrEqualTo(
+          tester.getRect(find.byType(SingleChildScrollView).first).top,
+        ),
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
 
   for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
     testWidgets('merged player options fit in $language', (tester) async {
@@ -309,7 +429,7 @@ void main() {
     await tester.pumpAndSettle();
     final sheetHeight =
         tester.getSize(find.byType(PlayerEngineConfigSheet)).height;
-    expect(sheetHeight, closeTo(480 * 0.78, 0.1));
+    expect(sheetHeight, closeTo(480 * 0.86, 0.1));
     final engines = find.byType(DropdownButton<PlayerEngine>);
     final checkboxNodes = [
       for (final checkbox
@@ -322,7 +442,7 @@ void main() {
             .first)),
     ];
     final nodes = [
-      for (var i = 0; i < 8; i++)
+      for (final i in [0, 1, 4, 5])
         tester.widget<DropdownButton<PlayerEngine>>(engines.at(i)).focusNode!,
       ...checkboxNodes,
     ];
@@ -331,7 +451,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(node.hasFocus, isTrue);
     }
-    final previousNodes = nodes.reversed.skip(1).toList();
+    final previousNodes = [
+      ...checkboxNodes.reversed.skip(1),
+      for (final i in [7, 6, 3, 2])
+        tester.widget<DropdownButton<PlayerEngine>>(engines.at(i)).focusNode!,
+    ];
     await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
     expect(previousNodes.first.hasFocus, isTrue);

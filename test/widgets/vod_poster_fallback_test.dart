@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/widgets/media_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/vod/vod_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
@@ -79,6 +80,15 @@ void main() {
 
     await tester.pumpWidget(app(const VodScreen()));
     await tester.pumpAndSettle();
+    expect(
+      tester.widget<TvFocus>(
+        find.ancestor(
+          of: find.byType(MediaCard).first,
+          matching: find.byType(TvFocus),
+        ).first,
+      ).fillFocusBackground,
+      isTrue,
+    );
     final card = tester.widget<MediaCard>(find.byType(MediaCard).first);
     final context = tester.element(find.byType(MediaCard).first);
     final candidate =

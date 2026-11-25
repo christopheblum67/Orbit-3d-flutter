@@ -30,6 +30,7 @@
     "audioBassHelp":  "Atténue les basses profondes et compresse les surcharges soudaines",
     "audioVocalGain":  "Amplification des voix :",
     "audioSyncTitle":  "Décalage audio (synchronisation A/V)",
+    "audioSyncLimitations": "Lecteur interne, audio PCM 16 bits et Night Focus actif uniquement. Les valeurs négatives ne sont pas appliquées.",
     "startupResumeQuestion":  "Reprendre « {title} » à {position} ?",
     "@startupResumeQuestion":  {
                                    "placeholders":  {
@@ -1423,8 +1424,6 @@
     "cloudflareResetSubtitle":  "Renouvelle la session Cloudflare active.",
     "cloudflareNoActiveSession":  "Aucune session Cloudflare active à renouveler.",
     "comingSoon":  "Bientôt disponible",
-    "settingsContact": "Contact",
-    "settingsActivateApp": "Activer l’application",
     "confirmAndContinue":  "Valider et continuer",
     "coverCacheCleared":  "Cache des pochettes purgé.",
     "createKidProfile":  "Créer un profil Enfant",

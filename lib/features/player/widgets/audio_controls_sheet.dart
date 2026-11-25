@@ -15,17 +15,22 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 /// vocal, décalage A/V) actif quand le switch maître est ON. Tous les réglages
 /// sont persistés (SharedPreferences) et poussés au natif à chaque changement
 /// via [NightFocusAudioService] ; le player ré-applique la config à la lecture.
-Future<void> showAudioControlsSheet(BuildContext context) {
+Future<void> showAudioControlsSheet(
+  BuildContext context, {
+  bool focusAudioSync = false,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
-    builder: (_) => const AudioControlsSheet(),
+    builder: (_) => AudioControlsSheet(focusAudioSync: focusAudioSync),
   );
 }
 
 class AudioControlsSheet extends ConsumerStatefulWidget {
-  const AudioControlsSheet({super.key});
+  const AudioControlsSheet({super.key, this.focusAudioSync = false});
+
+  final bool focusAudioSync;
 
   @override
   ConsumerState<AudioControlsSheet> createState() => _AudioControlsSheetState();
@@ -406,7 +411,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                         ),
                         _buildTvIconButton(
                           focusNode: _closeFocus,
-                          autofocus: true,
+                          autofocus: !widget.focusAudioSync,
                           nextFocusNode: _nightFocusSwitchFocus,
                           prevFocusNode: _resetFocus,
                           onPressed: () => Navigator.of(context).pop(),
@@ -612,6 +617,13 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 8),
+                              Text(
+                                l.audioSyncLimitations,
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
                               const SizedBox(height: 12),
                               Wrap(
                                 alignment: WrapAlignment.center,
@@ -619,6 +631,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                                 children: [
                                   _buildTvIconButton(
                                     focusNode: _shiftMinusFocus,
+                                    autofocus: widget.focusAudioSync,
                                     nextFocusNode: _shiftPlusFocus,
                                     prevFocusNode:
                                         _nightFocusEnabled && _dialogueBoost

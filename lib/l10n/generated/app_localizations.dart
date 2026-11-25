@@ -202,6 +202,12 @@ abstract class AppLocalizations {
   /// **'Décalage audio (synchronisation A/V)'**
   String get audioSyncTitle;
 
+  /// No description provided for @audioSyncLimitations.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecteur interne, audio PCM 16 bits et Night Focus actif uniquement. Les valeurs négatives ne sont pas appliquées.'**
+  String get audioSyncLimitations;
+
   /// No description provided for @startupResumeQuestion.
   ///
   /// In fr, this message translates to:
@@ -4803,18 +4809,6 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Bientôt disponible'**
   String get comingSoon;
-
-  /// No description provided for @settingsContact.
-  ///
-  /// In fr, this message translates to:
-  /// **'Contact'**
-  String get settingsContact;
-
-  /// No description provided for @settingsActivateApp.
-  ///
-  /// In fr, this message translates to:
-  /// **'Activer l’application'**
-  String get settingsActivateApp;
 
   /// No description provided for @confirmAndContinue.
   ///

@@ -1,19 +1,11 @@
 import 'dart:async';
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
-import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
-import 'package:orbit_3d_flutter/services/conditional_playlist_cache.dart';
-import 'package:orbit_3d_flutter/services/catalog_http_validators.dart';
-import 'package:orbit_3d_flutter/services/conditional_xmltv_cache.dart';
-import 'package:orbit_3d_flutter/services/video_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -82,50 +74,155 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen> {
               if (focusContext != null) {
                 Scrollable.ensureVisible(
                   focusContext,
-                  alignment: 0,
-                  duration: const Duration(milliseconds: 120),
+                  alignmentPolicy:
+                      ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+                );
+                Scrollable.ensureVisible(
+                  focusContext,
+                  alignmentPolicy:
+                      ScrollPositionAlignmentPolicy.keepVisibleAtStart,
                 );
               }
             },
           ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(12),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                const gap = 6.0;
-                final columns =
-                    ((constraints.maxWidth + gap) / 84).floor().clamp(1, 8);
-                final cellWidth =
-                    (constraints.maxWidth - gap * (columns - 1)) / columns;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Wrap(
-                      spacing: gap,
-                      runSpacing: gap,
-                      children: [
-                        for (final group in groups)
-                          SizedBox(
-                            width: cellWidth *
-                                    group.children.length.clamp(1, columns) +
-                                gap *
-                                    (group.children.length.clamp(1, columns) -
-                                        1),
-                            child: group,
+          child: LayoutBuilder(
+            builder: (context, viewport) {
+              final fitTv = ref.watch(tvModeControllerProvider).isRealTv &&
+                  MediaQuery.orientationOf(context) == Orientation.landscape;
+              final sizing = fitTv
+                  ? _SettingsSizing.forViewport(
+                      context, viewport, groups, standalone)
+                  : null;
+              return _SettingsSizingScope(
+                sizing: sizing,
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(fitTv ? 8 : 12),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final gap = fitTv ? _SettingsSizing.gap : 6.0;
+                      final minColumns = constraints.maxWidth >= 312 ? 4 : 1;
+                      final columns = ((constraints.maxWidth + gap) / 108)
+                          .floor()
+                          .clamp(minColumns, 6);
+                      final cellWidth =
+                          (constraints.maxWidth - gap * (columns - 1)) /
+                              columns;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Wrap(
+                            spacing: gap,
+                            runSpacing: gap,
+                            children: [
+                              for (final group in groups)
+                                SizedBox(
+                                  width: fitTv
+                                      ? constraints.maxWidth
+                                      : cellWidth *
+                                              group.children.length
+                                                  .clamp(1, columns) +
+                                          gap *
+                                              (group.children.length
+                                                      .clamp(1, columns) -
+                                                  1),
+                                  child: group,
+                                ),
+                            ],
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: gap),
-                    _SettingsGrid(children: standalone),
-                  ],
-                );
-              },
-            ),
+                          SizedBox(height: gap),
+                          _SettingsGrid(children: standalone),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
     );
   }
+}
+
+class _SettingsSizing {
+  const _SettingsSizing(this.diameter, this.fontSize);
+
+  final double diameter;
+  final double fontSize;
+  static const gap = 4.0;
+
+  static _SettingsSizing forViewport(
+    BuildContext context,
+    BoxConstraints viewport,
+    List<_SettingsGroup> groups,
+    List<Widget> standalone,
+  ) {
+    double textHeight(String text, TextStyle style, double width) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: width.clamp(1.0, double.infinity));
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    final width = (viewport.maxWidth - 16).clamp(1.0, double.infinity);
+    double rowLabels(
+        List<Widget> tiles, double rowWidth, TextStyle labelStyle) {
+      final cellWidth = (rowWidth - gap * (tiles.length - 1)) / tiles.length;
+      var height = 0.0;
+      for (final tile in tiles.whereType<_NavTile>()) {
+        final tileHeight = textHeight(tile.title, labelStyle, cellWidth - 6);
+        if (tileHeight > height) height = tileHeight;
+      }
+      return height;
+    }
+
+    double reservedFor(double fontSize) {
+      final labelStyle = Theme.of(context).textTheme.bodyMedium!.merge(
+            TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700),
+          );
+      final headingStyle = labelStyle.copyWith(letterSpacing: 0.8);
+      var reserved = 16.0 + gap * 2 + 3 * 6.0;
+      for (final group in groups) {
+        reserved += textHeight(
+              group.title.toUpperCase(),
+              headingStyle,
+              width - 16,
+            ) +
+            11;
+        reserved += rowLabels(group.children, width - 8, labelStyle);
+      }
+      return reserved + rowLabels(standalone, width, labelStyle);
+    }
+
+    var fontSize = 12.0;
+    var reserved = reservedFor(fontSize);
+    while (fontSize > 8 && reserved + 72 > viewport.maxHeight) {
+      fontSize -= 0.5;
+      reserved = reservedFor(fontSize);
+    }
+    final diameter = ((viewport.maxHeight - reserved) / 3).clamp(24.0, 160.0);
+    return _SettingsSizing(diameter, fontSize);
+  }
+}
+
+class _SettingsSizingScope extends InheritedWidget {
+  const _SettingsSizingScope({required this.sizing, required super.child});
+
+  final _SettingsSizing? sizing;
+
+  static _SettingsSizing? of(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_SettingsSizingScope>()
+      ?.sizing;
+
+  @override
+  bool updateShouldNotify(_SettingsSizingScope oldWidget) =>
+      sizing?.diameter != oldWidget.sizing?.diameter ||
+      sizing?.fontSize != oldWidget.sizing?.fontSize;
 }
 
 class _SettingsGroup extends StatelessWidget {
@@ -136,10 +233,18 @@ class _SettingsGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sizing = _SettingsSizingScope.of(context);
+    final compact = sizing != null;
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SettingsSectionTitle(title),
+        SettingsSectionTitle(
+          title,
+          fontSize: sizing?.fontSize ?? 15.6,
+          padding: compact
+              ? const EdgeInsets.fromLTRB(4, 4, 4, 3)
+              : const EdgeInsets.fromLTRB(4, 16, 4, 8),
+        ),
         _SettingsGrid(children: children),
       ],
     );
@@ -168,20 +273,23 @@ class _SettingsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      const gap = 6.0;
-      final columns = ((constraints.maxWidth + gap) / 78).floor().clamp(1, 8);
+      final gap =
+          _SettingsSizingScope.of(context) != null ? _SettingsSizing.gap : 6.0;
+      final columns = ((constraints.maxWidth + gap) / 78)
+          .floor()
+          .clamp(1, children.length.clamp(1, 6));
       final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
       return Column(
         children: [
           for (var start = 0; start < children.length; start += columns) ...[
-            if (start > 0) const SizedBox(height: gap),
+            if (start > 0) SizedBox(height: gap),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 for (var i = start;
                     i < children.length && i < start + columns;
                     i++) ...[
-                  if (i > start) const SizedBox(width: gap),
+                  if (i > start) SizedBox(width: gap),
                   SizedBox(width: width, child: children[i]),
                 ],
               ],
@@ -202,7 +310,6 @@ class _NavTile extends ConsumerWidget {
     required this.onTap,
     this.iconAsset,
     this.autofocus = false,
-    this.showIcon = true,
   });
 
   final IconData icon;
@@ -213,20 +320,20 @@ class _NavTile extends ConsumerWidget {
 
   /// Focus initial (premier élément de l'écran, en mode TV).
   final bool autofocus;
-  final bool showIcon;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     ref.watch(tvModeProvider);
     final isTv = ref.watch(tvModeControllerProvider).isRealTv;
+    final sizing = _SettingsSizingScope.of(context);
     return LayoutBuilder(builder: (context, constraints) {
-      final targetSize =
-          MediaQuery.orientationOf(context) == Orientation.landscape
-              ? MediaQuery.sizeOf(context).height * 0.3
+      final targetSize = sizing?.diameter ??
+          (MediaQuery.orientationOf(context) == Orientation.landscape
+              ? (MediaQuery.sizeOf(context).height * 0.22).clamp(0.0, 160.0)
               : isTv
-                  ? 76.0
-                  : 60.0;
+                  ? 98.8
+                  : 78.0);
       final diameter = (constraints.maxWidth - 6).clamp(0.0, targetSize);
       return TvFocus(
         autofocus: autofocus,
@@ -242,87 +349,62 @@ class _NavTile extends ConsumerWidget {
                   onTap: onTap,
                   borderRadius: BorderRadius.circular(16),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 3, vertical: sizing == null ? 4 : 2),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (showIcon) ...[
-                          Container(
-                            width: diameter,
-                            height: diameter,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: scheme.surfaceContainer,
-                              border: Border.all(
-                                color: scheme.primary
-                                    .withValues(alpha: focused ? 1 : 0.5),
-                                width: focused ? 2.5 : 1,
-                              ),
-                              boxShadow: focused
-                                  ? [
-                                      BoxShadow(
-                                        color: scheme.primary
-                                            .withValues(alpha: 0.35),
-                                        blurRadius: 12,
-                                      ),
-                                    ]
-                                  : null,
+                        Container(
+                          width: diameter,
+                          height: diameter,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: scheme.surfaceContainer,
+                            border: Border.all(
+                              color: scheme.primary
+                                  .withValues(alpha: focused ? 1 : 0.5),
+                              width: focused ? 2.5 : 1,
                             ),
-                            child: Center(
-                              child: iconAsset != null
-                                  ? Image.asset(
-                                      iconAsset!,
-                                      width: diameter * 0.65,
-                                      height: diameter * 0.65,
-                                      excludeFromSemantics: true,
-                                    )
-                                  : Icon(icon,
-                                      size: diameter * 0.46,
-                                      color: scheme.primary),
-                            ),
+                            boxShadow: focused
+                                ? [
+                                    BoxShadow(
+                                      color: scheme.primary
+                                          .withValues(alpha: 0.35),
+                                      blurRadius: 12,
+                                    ),
+                                  ]
+                                : null,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            title,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color:
-                                  focused ? scheme.primary : scheme.onSurface,
-                            ),
+                          child: Center(
+                            child: iconAsset != null
+                                ? Image.asset(
+                                    iconAsset!,
+                                    width: diameter * 0.65,
+                                    height: diameter * 0.65,
+                                    excludeFromSemantics: true,
+                                  )
+                                : Icon(icon,
+                                    size: diameter * 0.46,
+                                    color: scheme.primary),
                           ),
-                        ] else
-                          Container(
-                            width: diameter,
-                            constraints:
-                                BoxConstraints(minHeight: diameter + 4),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: focused
-                                  ? Border.all(color: scheme.primary, width: 2)
-                                  : null,
-                            ),
-                            child: Text(
-                              title,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color:
-                                    focused ? scheme.primary : scheme.onSurface,
-                              ),
-                            ),
+                        ),
+                        SizedBox(height: sizing == null ? 4 : 2),
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: sizing?.fontSize ?? 15.6,
+                            fontWeight: FontWeight.w700,
+                            color: focused ? scheme.primary : scheme.onSurface,
                           ),
+                        ),
                         if (subtitle.isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Text(
                             subtitle,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 9,
+                              fontSize: 11.7,
                               color: scheme.onSurfaceVariant,
                             ),
                           ),
@@ -369,7 +451,7 @@ class _AccountSection {
         _NavTile(
           icon: Icons.memory_rounded,
           title: l.accountDeviceProfile,
-          onTap: () => context.go('/onboarding'),
+          onTap: () => context.go('/onboarding?from=settings'),
         ),
       ]),
     ];
@@ -570,26 +652,18 @@ class _DnsProviderTile extends ConsumerWidget {
         Text(l.dnsProvider),
         Text(l.dnsProviderSubtitle,
             style: Theme.of(context).textTheme.bodySmall),
-        DropdownButton<String>(
-          isExpanded: true,
-          value:
-              _options.contains(s.dnsProvider) ? s.dnsProvider : _options.last,
-          borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-          items: [
-            for (final o in _options)
-              DropdownMenuItem(
-                value: o,
-                child: Text(
-                  o == _options.last ? l.settingsSystemAutomatic : o,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
-          onChanged: (v) {
-            if (v != null) n.setDnsProvider(v);
-          },
-        ),
+        for (final option in _options)
+          _SettingsToggle(
+            title: option == _options.last ? l.settingsSystemAutomatic : option,
+            value: option ==
+                (_options.contains(s.dnsProvider)
+                    ? s.dnsProvider
+                    : _options.last),
+            onChanged: (_) {
+              if (s.dnsProvider != option) n.setDnsProvider(option);
+            },
+            checkbox: true,
+          ),
       ],
     );
   }
@@ -945,134 +1019,95 @@ class _AudioOptions extends ConsumerWidget {
   }
 }
 
-/// Boîte de dialogue de calibration manuelle du décalage audio (ms).
-///
-/// Extraite en fonction de premier niveau : elle était méthode privée de
-/// l'ancienne `_AudioSection`, désormais fusionnée dans [_PlayerAudioSection].
 Future<void> _showAvSyncDialog(BuildContext context, WidgetRef ref) async {
   final n = ref.read(advancedSettingsProvider.notifier);
   final l = AppLocalizations.of(context);
-  final controller = TextEditingController(text: '0');
-
-  final cancelFocus = FocusNode();
-  final confirmFocus = FocusNode();
-  final fieldFocus = FocusNode();
-
-  void requestFocus(FocusNode focus) {
-    if (context.mounted) {
-      FocusScope.of(context).requestFocus(focus);
-    }
-  }
-
+  var value = ref.read(advancedSettingsProvider).nightFocusAudioShiftMs;
+  var limit = value.abs() > 2000 ? ((value.abs() + 49) ~/ 50) * 50 : 2000;
   await showDialog(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(l.avSyncDialogTitle),
-      content: Focus(
-        focusNode: fieldFocus,
-        onKeyEvent: (node, event) {
-          if (event is KeyDownEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.enter ||
-                event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-              final ms = int.tryParse(controller.text) ?? 0;
-              n.setNightFocusAudioShiftMs(ms);
-              Navigator.pop(ctx);
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-              requestFocus(cancelFocus);
-              return KeyEventResult.handled;
-            }
-          }
-          return KeyEventResult.ignored;
-        },
-        child: TextField(
-          controller: controller,
-          focusNode: fieldFocus,
-          keyboardType: const TextInputType.numberWithOptions(signed: true),
-          decoration: InputDecoration(
-            labelText: l.avSyncDialogLabel,
-            hintText: l.avSyncDialogHint,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) {
+        void updateValue(int next) {
+          setState(() {
+            value = next;
+            if (value.abs() >= limit) limit = value.abs() + 500;
+          });
+        }
+
+        return AlertDialog(
+          title: Text(l.avSyncDialogTitle),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.avSyncDialogHint),
+                const SizedBox(height: 8),
+                Text(l.audioSyncLimitations,
+                    style: Theme.of(ctx).textTheme.bodySmall),
+                const SizedBox(height: 12),
+                Text(
+                    '${l.avSyncDialogLabel} : ${value >= 0 ? "+" : ""}$value ms'),
+                TvFocus(
+                  autofocus: true,
+                  onKeyEvent: (node, event) {
+                    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+                      return KeyEventResult.ignored;
+                    }
+                    final key = event.logicalKey;
+                    if (key == LogicalKeyboardKey.arrowLeft ||
+                        key == LogicalKeyboardKey.arrowRight) {
+                      final right = key == LogicalKeyboardKey.arrowRight;
+                      final increase = right ==
+                          (Directionality.of(ctx) == TextDirection.ltr);
+                      updateValue(value + (increase ? 50 : -50));
+                      return KeyEventResult.handled;
+                    }
+                    if (key == LogicalKeyboardKey.arrowDown ||
+                        key == LogicalKeyboardKey.select ||
+                        key == LogicalKeyboardKey.enter) {
+                      node.nextFocus();
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: ExcludeFocus(
+                    child: SliderTheme(
+                      data: SliderTheme.of(ctx).copyWith(
+                        tickMarkShape: SliderTickMarkShape.noTickMark,
+                      ),
+                      child: Slider(
+                        value: value.toDouble(),
+                        min: -limit.toDouble(),
+                        max: limit.toDouble(),
+                        divisions: limit ~/ 25,
+                        label: '$value ms',
+                        onChanged: (v) => updateValue(v.round()),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          textInputAction: TextInputAction.done,
-          onEditingComplete: () {
-            final ms = int.tryParse(controller.text) ?? 0;
-            n.setNightFocusAudioShiftMs(ms);
-            Navigator.pop(ctx);
-          },
-        ),
-      ),
-      actions: [
-        Focus(
-          focusNode: cancelFocus,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              Navigator.pop(ctx);
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-              requestFocus(confirmFocus);
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent &&
-                event.logicalKey == LogicalKeyboardKey.arrowDown) {
-              requestFocus(fieldFocus);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l.cancel),
-          ),
-        ),
-        Focus(
-          focusNode: confirmFocus,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              final ms = int.tryParse(controller.text) ?? 0;
-              n.setNightFocusAudioShiftMs(ms);
-              Navigator.pop(ctx);
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-              requestFocus(cancelFocus);
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent &&
-                event.logicalKey == LogicalKeyboardKey.arrowDown) {
-              requestFocus(fieldFocus);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: FilledButton(
-            onPressed: () {
-              final ms = int.tryParse(controller.text) ?? 0;
-              n.setNightFocusAudioShiftMs(ms);
-              Navigator.pop(ctx);
-            },
-            child: Text(l.apply),
-          ),
-        ),
-      ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l.cancel),
+            ),
+            FilledButton(
+              onPressed: () {
+                n.setNightFocusAudioShiftMs(value);
+                Navigator.pop(ctx);
+              },
+              child: Text(l.apply),
+            ),
+          ],
+        );
+      },
     ),
   );
-
-  cancelFocus.dispose();
-  confirmFocus.dispose();
-  fieldFocus.dispose();
 }
 
 /// ─── AVANCÉ ──────────────────────────────────────────────────────
@@ -1083,19 +1118,13 @@ class _AdvancedSection {
       _SettingsGroup(title: l.sectionDiagnostics, children: [
         _PlayerAudioSection.engineTile(context),
         _AccountSection.cloudBackupTile(context, ref),
-        if (Platform.isAndroid)
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
           _NavTile(
             icon: Icons.system_update_alt,
             iconAsset: 'assets/icons/settings-update.png',
             title: l.updateTitle,
             onTap: () => showUpdateDialog(context),
           ),
-        _NavTile(
-          icon: Icons.cleaning_services_outlined,
-          showIcon: false,
-          title: l.clearCaches,
-          onTap: () => _clearAllCaches(context, ref),
-        ),
       ]),
     ];
   }
@@ -1106,14 +1135,6 @@ class _AdvancedSection {
       _NavTile(
         icon: Icons.contact_support_outlined,
         iconAsset: 'assets/icons/settings-contact.png',
-        title: l.settingsContact,
-        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.comingSoon)),
-        ),
-      ),
-      _NavTile(
-        icon: Icons.balance_outlined,
-        showIcon: false,
         title: l.legalNotice,
         onTap: () => showDialog<void>(
           context: context,
@@ -1126,14 +1147,6 @@ class _AdvancedSection {
         ),
       ),
       _NavTile(
-        icon: Icons.verified_user_outlined,
-        iconAsset: 'assets/icons/settings-activate.png',
-        title: l.settingsActivateApp,
-        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.comingSoon)),
-        ),
-      ),
-      _NavTile(
         icon: Icons.restart_alt_outlined,
         iconAsset: 'assets/icons/settings-reset.png',
         title: l.resetApp,
@@ -1141,33 +1154,6 @@ class _AdvancedSection {
       ),
       const _AdvancedEntry(),
     ];
-  }
-
-  static Future<void> _clearAllCaches(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final l = AppLocalizations.of(context);
-    // Purge réelle : cache mémoire des images Flutter + cache disque
-    // flutter_cache_manager (pochettes/stickers) + images vivantes.
-    PaintingBinding.instance.imageCache.clearLiveImages();
-    PaintingBinding.instance.imageCache.clear();
-    // Vide aussi le cache disque en arrière-plan → le snack reflète la réalité.
-    await DefaultCacheManager().emptyCache();
-    // Guide TV (tampon disque + cache mémoire) et métadonnées TMDB/OMDb/TVmaze :
-    // ils seront retéléchargés au prochain besoin.
-    await EpgBufferStore.instance.clearAll();
-    await ConditionalPlaylistCache.instance.clear();
-    await CatalogHttpValidators.instance.clear();
-    await ConditionalXmltvCache.instance.clear();
-    await (await VideoCacheManager.instance).clear();
-    ref.read(epgDataCacheProvider).invalidate();
-    await HiveSync.writeAsync('metadata_cache', (box) => box.clear());
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.snackCacheCleared)),
-      );
-    }
   }
 
   static Future<void> _factoryReset(BuildContext context, WidgetRef ref) async {
@@ -1316,11 +1302,12 @@ class _AccessibilityOptions extends ConsumerWidget {
           checkbox: true,
         ),
         const Divider(),
+        const SizedBox(height: 16),
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: Text(
             l.tabNetwork,
-            style: Theme.of(context).textTheme.titleSmall,
+            style: Theme.of(context).textTheme.titleMedium,
           ),
         ),
         const SizedBox(height: 8),
@@ -1340,6 +1327,8 @@ class _AdvancedEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+    final size =
+        _SettingsSizingScope.of(context)?.diameter.clamp(24.0, 60.0) ?? 60.0;
     return Semantics(
       button: true,
       label: l.advancedHiddenHint,
@@ -1359,8 +1348,8 @@ class _AdvancedEntry extends StatelessWidget {
                 child: Container(
                   key: const ValueKey('hidden-advanced-entry'),
                   margin: const EdgeInsets.symmetric(vertical: 4),
-                  width: 60,
-                  height: 60,
+                  width: size,
+                  height: size,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: focused

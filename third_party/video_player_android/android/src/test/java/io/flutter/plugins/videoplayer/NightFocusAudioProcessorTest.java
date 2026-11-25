@@ -17,9 +17,7 @@ import org.robolectric.RobolectricTestRunner;
 /**
  * Vérification objective du processeur « Night Focus ».
  *
- * On teste que la configuration s'applique correctement. Les tests de sortie
- * audio sont désactivés car Robolectric ne gère pas correctement les
- * ByteBuffer.allocateDirect (environnement JVM non-Android).
+ * Vérifie la configuration et le retard PCM en mono/stéréo.
  */
 @RunWith(RobolectricTestRunner.class)
 public class NightFocusAudioProcessorTest {
@@ -92,6 +90,41 @@ public class NightFocusAudioProcessorTest {
     assertTrue(processor.isActive());
   }
 
+  @Test
+  public void stereoDelayPreservesDurationAndChannelOrder() throws Exception {
+    NightFocusDspConfig.enabled = true;
+    NightFocusDspConfig.volumeNormalization = false;
+    NightFocusDspConfig.audioDelayMs = 21;
+    assertStereoDelay();
+  }
+
+  @Test
+  public void stereoDelayUsesActualFormatWhenEnabledDuringPlayback() throws Exception {
+    NightFocusDspConfig.enabled = false;
+    NightFocusDspConfig.volumeNormalization = false;
+    NightFocusDspConfig.audioDelayMs = 21;
+    assertStereoDelay();
+  }
+
+  private void assertStereoDelay() throws Exception {
+    processor.configure(new AudioFormat(1000, 2, C.ENCODING_PCM_16BIT));
+    processor.flush();
+    NightFocusDspConfig.enabled = true;
+    NightFocusDspConfig.touchVersion();
+    ByteBuffer input = ByteBuffer.allocateDirect(25 * 2 * 2).order(ByteOrder.nativeOrder());
+    for (int i = 0; i < 25; i++) {
+      input.putShort((short) 1000);
+      input.putShort((short) 2000);
+    }
+    input.flip();
+    processor.queueInput(input);
+    ByteBuffer output = processor.getOutput().order(ByteOrder.nativeOrder());
+    for (int i = 0; i < 25; i++) {
+      assertEquals(i < 21 ? 0 : 1000, output.getShort());
+      assertEquals(i < 21 ? 0 : 2000, output.getShort());
+    }
+  }
+
   // --- Cas 4 : hot-reload — une config poussée à chaud (version incrémentée)
   // --- ne doit pas casser la reconfiguration du pipeline. ---
   @Test
@@ -136,7 +169,4 @@ public class NightFocusAudioProcessorTest {
     assertTrue(processor.isActive());
   }
 
-  // Note: les tests de traitement audio réel (sortie amplifiée, décalée) sont
-  // désactivés car Robolectric ne supporte pas ByteBuffer.allocateDirect
-  // correctement (environnement JVM). La validation se fait sur device réel.
 }

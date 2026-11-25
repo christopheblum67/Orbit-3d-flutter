@@ -156,6 +156,7 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
       },
       child: InkWell(
         onTap: widget.onTap,
+        canRequestFocus: false,
         borderRadius: BorderRadius.circular(10),
         child: Container(
           margin: EdgeInsets.symmetric(
@@ -169,7 +170,9 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
           decoration: BoxDecoration(
             color: selected
                 ? scheme.primaryContainer.withValues(alpha: 0.5)
-                : Colors.transparent,
+                : showRing
+                    ? scheme.primary.withValues(alpha: 0.08)
+                    : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: showRing ? scheme.primary : Colors.transparent,

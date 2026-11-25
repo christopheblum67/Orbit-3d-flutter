@@ -5,20 +5,27 @@ import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 
 /// Titre de section dans les écrans de configuration.
 class SettingsSectionTitle extends StatelessWidget {
-  const SettingsSectionTitle(this.title, {super.key});
+  const SettingsSectionTitle(
+    this.title, {
+    super.key,
+    this.fontSize = 12,
+    this.padding = const EdgeInsets.fromLTRB(4, 16, 4, 8),
+  });
 
   final String title;
+  final double fontSize;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+      padding: padding,
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
           color: scheme.primary,
-          fontSize: 12,
+          fontSize: fontSize,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
         ),

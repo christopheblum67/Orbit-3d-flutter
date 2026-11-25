@@ -6,6 +6,79 @@ import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 
 void main() {
+  testWidgets('le fond du focus couvre toute la tuile sans masquer le contenu',
+      (tester) async {
+    final container = ProviderContainer();
+    container.read(tvModeNotifierProvider).enable();
+    addTearDown(container.dispose);
+    final focusNode = FocusNode();
+    addTearDown(focusNode.dispose);
+    var activated = 0;
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 160,
+                height: 240,
+                child: TvFocus(
+                  focusNode: focusNode,
+                  fillFocusBackground: true,
+                  onActivate: () => activated++,
+                  child: const Column(
+                    children: [
+                      Expanded(
+                        child: ColoredBox(
+                          key: ValueKey('poster'),
+                          color: Colors.red,
+                        ),
+                      ),
+                      Text('Un titre sur deux lignes'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final focus = find.byType(TvFocus);
+    final box = find.descendant(
+      of: focus,
+      matching: find.byType(AnimatedContainer),
+    );
+    expect(tester.widget<AnimatedContainer>(box).decoration, isNull);
+    focusNode.requestFocus();
+    await tester.pumpAndSettle();
+    final decoration =
+        tester.widget<AnimatedContainer>(box).decoration! as BoxDecoration;
+    expect(
+      decoration.color,
+      Theme.of(tester.element(focus))
+          .colorScheme
+          .primary
+          .withValues(alpha: 0.08),
+    );
+    expect(
+      tester.getRect(box).contains(
+            tester.getCenter(find.text('Un titre sur deux lignes')),
+          ),
+      isTrue,
+    );
+    expect(
+      tester.widget<ColoredBox>(find.byKey(const ValueKey('poster'))).color,
+      Colors.red,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(activated, 1);
+    focusNode.unfocus();
+    await tester.pumpAndSettle();
+    expect(tester.widget<AnimatedContainer>(box).decoration, isNull);
+  });
+
   testWidgets('TvFocus applique les effets en mode TV quand focusé', (tester) async {
     final container = ProviderContainer();
     container.read(tvModeControllerProvider).enable();
