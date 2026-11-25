@@ -25,6 +25,7 @@ import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/recent_actions_dialog.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -75,6 +76,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+    ref.watch(favoritesProvider);
+    ref.watch(recentlyWatchedProvider);
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
@@ -632,6 +635,20 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
       final poster = _posterOf(item);
       final year = _yearOf(item);
       final genre = _genreOf(item);
+      if (_selectedCategoryId == 'recent') {
+        showRecentActions(
+          context,
+          ref,
+          FavoriteEntry(
+            type: type,
+            id: item.id,
+            title: title,
+            posterUrl: poster,
+            subtitle: year > 0 ? '$year' : genre,
+          ),
+        );
+        return;
+      }
       final wasFavorite = notifier.isFavorite(type, item.id);
       notifier.toggle(
         FavoriteEntry(
@@ -667,6 +684,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     return TvFocus(
       key: key,
       onActivate: onOpen,
+      onLongPress: _selectedCategoryId == 'recent' ? onLongPress : null,
       child: MediaCard(
         focusable: false,
         title: cardTitle,

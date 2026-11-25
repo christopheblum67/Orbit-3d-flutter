@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -282,20 +285,20 @@ void main() {
       tv: false,
       manual: true,
       maximum: 79.2,
-      minimum: 70.0
+      minimum: 40.0
     ),
     (
       size: const Size(960, 540),
       tv: true,
       manual: false,
-      maximum: 160.0,
+      maximum: 400.0,
       minimum: 24.0
     ),
     (
       size: const Size(1920, 1080),
       tv: true,
       manual: false,
-      maximum: 160.0,
+      maximum: 400.0,
       minimum: 24.0
     ),
     (
@@ -361,12 +364,13 @@ void main() {
       expect(diameter, greaterThanOrEqualTo(config.minimum));
       if (config.size.width > config.size.height) {
         expect(diameter, lessThanOrEqualTo(tester.getSize(profile).width - 6));
-        expect(diameter, greaterThan(52));
+        expect(diameter, greaterThan(40));
       }
       final fontSize =
           tester.widget<Text>(find.text('User profiles')).style!.fontSize!;
-      if (config.tv && config.size.width > config.size.height) {
-        expect(fontSize, inInclusiveRange(8, 12));
+      if ((config.tv || config.manual) &&
+          config.size.width > config.size.height) {
+        expect(fontSize, inInclusiveRange(8, 30));
       } else {
         expect(fontSize, closeTo(15.6, 0.01));
       }
@@ -393,19 +397,23 @@ void main() {
     });
   }
 
-  for (final size in [
-    const Size(640, 360),
-    const Size(960, 540),
-    const Size(1920, 1080),
+  for (final viewportConfig in [
+    (size: const Size(640, 360), density: 1.0),
+    (size: const Size(1280, 720), density: 1.0),
+    (size: const Size(960, 540), density: 1.0),
+    (size: const Size(1920, 1080), density: 1.0),
+    (size: const Size(3840, 2160), density: 1.0),
+    (size: const Size(1920, 1080), density: 2.0),
+    (size: const Size(3840, 2160), density: 2.0),
   ]) {
     for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
-      testWidgets('TV settings fit the viewport at $size in $language',
+      testWidgets('TV settings fit the viewport at $viewportConfig in $language',
           (tester) async {
         SharedPreferences.setMockInitialValues({});
         debugDefaultTargetPlatformOverride = TargetPlatform.android;
         addTearDown(() => debugDefaultTargetPlatformOverride = null);
-        tester.view.physicalSize = size;
-        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = viewportConfig.size;
+        tester.view.devicePixelRatio = viewportConfig.density;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         final controller = TvModeController();
@@ -449,6 +457,14 @@ void main() {
             )
             .first);
         expect(scroll.position.maxScrollExtent, lessThanOrEqualTo(0.1));
+        expect(
+          find.byWidgetPredicate((widget) =>
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>)
+                  .value
+                  .startsWith('settings-icon-')),
+          findsNWidgets(10),
+        );
         for (final title in [
           l.accountProfiles,
           l.accountSubscriptions,
@@ -470,16 +486,169 @@ void main() {
           expect(rect.right, lessThanOrEqualTo(bounds.right + 0.1));
           expect(rect.top, greaterThanOrEqualTo(bounds.top - 0.1));
           expect(rect.bottom, lessThanOrEqualTo(bounds.bottom + 0.1));
+          final circle =
+              tester.getRect(find.byKey(ValueKey('settings-icon-$title')));
+          final text = tester.getRect(label);
+          expect(circle.width, closeTo(circle.height, 0.1));
+          expect(circle.left, greaterThanOrEqualTo(rect.left));
+          expect(circle.right, lessThanOrEqualTo(rect.right));
+          expect(circle.top, greaterThanOrEqualTo(rect.top));
+          expect(circle.bottom, lessThanOrEqualTo(text.top));
+          expect(circle.center.dx, closeTo(text.center.dx, 0.1));
+          expect(text.left, greaterThanOrEqualTo(rect.left));
+          expect(text.right, lessThanOrEqualTo(rect.right));
+          expect(text.bottom, lessThanOrEqualTo(rect.bottom));
+          expect(tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
+              isFalse);
+          expect(text.bottom, lessThanOrEqualTo(bounds.bottom + 0.1));
         }
         final accountGroup =
             find.byKey(ValueKey('settings-group-${l.sectionAccountProfile}'));
         final groupBounds = tester.getRect(accountGroup);
         expect(groupBounds.width, closeTo(bounds.width - 16, 0.1));
+        final diagnostics =
+            find.byKey(ValueKey('settings-group-${l.sectionDiagnostics}'));
+        expect(tester.getRect(diagnostics).width,
+            closeTo(bounds.width - 16, 0.1));
+        final rows = [
+          [l.accountProfiles, l.accountSubscriptions, l.accountPreferences, l.accountDeviceProfile],
+          [l.enginesTile, l.sectionBackup, l.updateTitle],
+          [l.sectionAccessibility, l.legalNotice, l.resetApp],
+        ];
+        for (final row in rows) {
+          final centers = row.map((title) => tester
+              .getRect(find.byKey(ValueKey('settings-icon-$title')))
+              .center).toList();
+          for (final center in centers.skip(1)) {
+            expect(center.dy, closeTo(centers.first.dy, 0.1));
+          }
+        }
+        final hidden = tester.getRect(find.byKey(
+            const ValueKey('hidden-advanced-entry')));
+        final lastRow = tester.getRect(
+            find.byKey(ValueKey('settings-icon-${l.sectionAccessibility}')));
+        expect(hidden.top, closeTo(lastRow.top, 4));
+        expect(hidden.bottom, lessThanOrEqualTo(bounds.bottom));
         expect(tester.takeException(), isNull);
         debugDefaultTargetPlatformOverride = null;
       });
     }
   }
+
+  testWidgets('settings remain scrollable with enlarged text on a compact TV',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(640, 360);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = TvModeController();
+    await controller.updateFromDetection(const DeviceDetectionResult(
+      deviceType: DeviceType.tv,
+      isTv: true,
+      confidence: 1,
+    ));
+    addTearDown(controller.dispose);
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const UnifiedSettingsScreen()),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        tvModeControllerProvider.overrideWithValue(controller),
+        deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+      ],
+      child: MaterialApp.router(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final scroll = find.descendant(
+      of: find.byType(TvSafeArea),
+      matching: find.byType(Scrollable),
+    ).first;
+    expect(tester.state<ScrollableState>(scroll).position.maxScrollExtent,
+        greaterThan(0));
+    final last = find.byKey(ValueKey(
+        'settings-tile-${lookupAppLocalizations(const Locale('fr')).resetApp}'));
+    await tester.ensureVisible(last);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(last).bottom,
+        lessThanOrEqualTo(tester.getRect(scroll).bottom + 0.1));
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('settings detect a TV after the remote has enabled TV mode',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = TvModeController()..enable();
+    addTearDown(controller.dispose);
+    final detection = Completer<DeviceDetectionResult>();
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const UnifiedSettingsScreen()),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        deviceDetectionProvider.overrideWith((ref) => detection.future),
+        tvModeControllerProvider.overrideWithValue(controller),
+        deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+      ],
+      child: MaterialApp.router(
+        builder: (context, child) => TvModeDetector(child: child!),
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(controller.isRealTv, isFalse);
+    detection.complete(const DeviceDetectionResult(
+      deviceType: DeviceType.tv,
+      isTv: true,
+      confidence: 1,
+    ));
+    await tester.pumpAndSettle();
+    expect(controller.isRealTv, isTrue);
+    final safeArea = tester.widget<SafeArea>(find.descendant(
+      of: find.byType(TvSafeArea),
+      matching: find.byType(SafeArea),
+    ).first);
+    expect(safeArea.minimum, tvOverscanInsets);
+    final l = lookupAppLocalizations(const Locale('fr'));
+    final viewport = find.descendant(
+      of: find.byType(TvSafeArea),
+      matching: find.byType(SingleChildScrollView),
+    ).first;
+    final group =
+        find.byKey(ValueKey('settings-group-${l.sectionDiagnostics}'));
+    expect(tester.getRect(group).width,
+        closeTo(tester.getRect(viewport).width - 16, 0.1));
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   testWidgets('audio calibration keeps, adjusts and saves the current offset',
       (tester) async {

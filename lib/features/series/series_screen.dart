@@ -23,6 +23,7 @@ import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/recent_actions_dialog.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -595,6 +596,22 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                       }
 
                                       void onLongPress() {
+                                        if (_selectedCategoryId == 'recent') {
+                                          showRecentActions(
+                                            context,
+                                            ref,
+                                            FavoriteEntry(
+                                              type: ContentType.series,
+                                              id: series.id,
+                                              title: series.title,
+                                              posterUrl: series.coverUrl,
+                                              subtitle: series.year > 0
+                                                  ? '${series.year}'
+                                                  : series.genre,
+                                            ),
+                                          );
+                                          return;
+                                        }
                                         final notifier = ref
                                             .read(favoritesProvider.notifier);
                                         final wasFavorite = notifier.isFavorite(
@@ -642,6 +659,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                         onGenreResolved: _onGenreResolved,
                                         onOpen: onOpen,
                                         onLongPress: onLongPress,
+                                        isRecentCategory:
+                                            _selectedCategoryId == 'recent',
                                       );
                                     },
                                     childCount: visibleSeries.length,
@@ -693,6 +712,7 @@ class _SeriesTile extends ConsumerWidget {
     required this.affinity,
     required this.onOpen,
     required this.onLongPress,
+    required this.isRecentCategory,
     required this.highlightTitle,
     required this.cachedGenre,
     required this.onGenreResolved,
@@ -702,6 +722,7 @@ class _SeriesTile extends ConsumerWidget {
   final ProfileAffinityScorer? affinity;
   final VoidCallback onOpen;
   final VoidCallback onLongPress;
+  final bool isRecentCategory;
   final bool highlightTitle;
   final String cachedGenre;
   final void Function(SeriesGenreQuery, String) onGenreResolved;
@@ -740,6 +761,7 @@ class _SeriesTile extends ConsumerWidget {
 
     return TvFocus(
       onActivate: onOpen,
+      onLongPress: isRecentCategory ? onLongPress : null,
       child: MediaCard(
         ratingAboveAffinity: true,
         title: series.title,

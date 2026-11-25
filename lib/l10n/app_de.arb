@@ -937,6 +937,7 @@
     "historyEmptyHint":  "Deine zuletzt angesehenen Inhalte erscheinen hier.",
     "refreshAction":  "Aktualisieren",
     "favoritesAdd":  "Zu Favoriten hinzufügen",
+    "recentRemove": "Aus angesehenen entfernen",
     "favoritesRemove":  "Aus Favoriten entfernen",
     "favoritesNeedScope":  "Ein aktives Profil und Abonnement sind erforderlich.",
     "favoritesReplayHint":  "Tippe bei einer Wiederholung auf das Herz, um sie hier zu finden.",

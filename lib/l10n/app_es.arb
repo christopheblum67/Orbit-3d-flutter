@@ -937,6 +937,7 @@
     "historyEmptyHint":  "Tus reproducciones recientes aparecerán aquí.",
     "refreshAction":  "Actualizar",
     "favoritesAdd":  "Añadir a favoritos",
+    "recentRemove": "Quitar de vistos",
     "favoritesRemove":  "Quitar de favoritos",
     "favoritesNeedScope":  "Se necesitan un perfil y una suscripción activos.",
     "favoritesReplayHint":  "Pulsa el corazón de una repetición para encontrarla aquí.",

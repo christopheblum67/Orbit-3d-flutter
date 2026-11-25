@@ -3190,6 +3190,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get favoritesAdd => 'Ajouter aux favoris';
 
   @override
+  String get recentRemove => 'Retirer des vus';
+
+  @override
   String get favoritesRemove => 'Retirer des favoris';
 
   @override

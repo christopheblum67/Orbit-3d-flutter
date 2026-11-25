@@ -72,6 +72,29 @@ void main() {
       expect(controller.detectionResult, result);
     });
 
+    test('la detection tardive notifie meme apres activation manuelle',
+        () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final changes = <bool>[];
+      final subscription = container.listen(
+        realTvProvider,
+        (_, next) => changes.add(next),
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      final controller = container.read(tvModeControllerProvider)..enable();
+      await controller.updateFromDetection(const DeviceDetectionResult(
+        deviceType: DeviceType.tv,
+        isTv: true,
+        confidence: 1,
+      ));
+      expect(changes, [false, true]);
+      expect(container.read(tvModeProvider), isTrue);
+      controller.reset();
+      expect(changes, [false, true, false]);
+    });
+
     test(
         'updateFromDetection ne force pas la désactivation si détection mobile',
         () async {

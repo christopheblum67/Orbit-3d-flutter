@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -376,14 +378,48 @@ final Set<LogicalKeyboardKey> _tvTriggerKeys = {
 };
 
 /// Wrapper pour détecter la première interaction clavier/D-pad et activer le mode TV
-class TvModeDetector extends ConsumerWidget {
+class TvModeDetector extends ConsumerStatefulWidget {
   final Widget child;
   const TvModeDetector({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TvModeDetector> createState() => _TvModeDetectorState();
+}
+
+class _TvModeDetectorState extends ConsumerState<TvModeDetector> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_detectDevice());
+  }
+
+  Future<void> _detectDevice() async {
+    final controller = ref.read(tvModeControllerProvider);
+    if (controller.detectionResult != null) return;
+    try {
+      final result = await ref.read(deviceDetectionProvider.future);
+      if (!mounted || controller.detectionResult != null) return;
+      for (final key in ['android_error', 'ios_error', 'platform_error']) {
+        if (result.details[key] != null) {
+          LoggerService.instance
+              .warning('TV detection: $key', error: result.details[key]);
+        }
+      }
+      await controller.updateFromDetection(result);
+    } catch (error, stackTrace) {
+      LoggerService.instance
+          .error('TV detection failed', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Listener(
-      onPointerDown: (_) => ref.read(tvModeNotifierProvider).disable(),
+      onPointerDown: (_) {
+        if (!ref.read(tvModeControllerProvider).isRealTv) {
+          ref.read(tvModeNotifierProvider).disable();
+        }
+      },
       child: Focus(
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent &&
@@ -392,7 +428,7 @@ class TvModeDetector extends ConsumerWidget {
           }
           return KeyEventResult.ignored;
         },
-        child: child,
+        child: widget.child,
       ),
     );
   }

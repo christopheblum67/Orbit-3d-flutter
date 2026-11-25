@@ -29,6 +29,7 @@ import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/recent_actions_dialog.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 
@@ -657,6 +658,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                     ? ValueKey(movie.id)
                                     : null,
                                 movie: movie,
+                                isRecentCategory: _selectedCategoryId == 'recent',
                                 highlightTitle: changes.newIds.contains(
                                   movieChangeId(
                                     movie,
@@ -779,6 +781,7 @@ class _VodTile extends ConsumerWidget {
   const _VodTile({
     super.key,
     required this.movie,
+    required this.isRecentCategory,
     required this.enrichment,
     required this.affinity,
     required this.highlightTitle,
@@ -787,6 +790,7 @@ class _VodTile extends ConsumerWidget {
   });
 
   final Movie movie;
+  final bool isRecentCategory;
   final TmdbRankEntry? enrichment;
   final ProfileAffinityScorer? affinity;
   final bool highlightTitle;
@@ -815,6 +819,21 @@ class _VodTile extends ConsumerWidget {
     void onOpen() => context.push('/vod/detail', extra: movie);
 
     void onLongPress() {
+      if (isRecentCategory) {
+        showRecentActions(
+          context,
+          ref,
+          FavoriteEntry(
+            type: ContentType.vod,
+            id: movie.id,
+            title: movie.title,
+            posterUrl: movie.posterUrl,
+            subtitle: movie.year > 0 ? '${movie.year}' : movie.genre,
+            streamUrl: movie.streamUrl,
+          ),
+        );
+        return;
+      }
       final notifier = ref.read(favoritesProvider.notifier);
       final wasFavorite = notifier.isFavorite(ContentType.vod, movie.id);
       notifier.toggle(
@@ -843,6 +862,7 @@ class _VodTile extends ConsumerWidget {
 
     return TvFocus(
       onActivate: onOpen,
+      onLongPress: isRecentCategory ? onLongPress : null,
       fillFocusBackground: true,
       child: MediaCard(
         ratingAboveAffinity: true,

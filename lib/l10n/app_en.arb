@@ -937,6 +937,7 @@
     "historyEmptyHint":  "Your recent viewing will appear here.",
     "refreshAction":  "Refresh",
     "favoritesAdd":  "Add to favorites",
+    "recentRemove": "Remove from watched",
     "favoritesRemove":  "Remove from favorites",
     "favoritesNeedScope":  "An active profile and subscription are required.",
     "favoritesReplayHint":  "Tap the heart on a replay to find it here.",

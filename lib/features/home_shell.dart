@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/core/widgets/drawer_menu_button.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
@@ -35,7 +36,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final scheme = Theme.of(context).colorScheme;
     final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
     final location = GoRouterState.of(context).uri.path;
-    final isWide = MediaQuery.sizeOf(context).width > 720;
+    final isWide =
+        ref.watch(realTvProvider) || MediaQuery.sizeOf(context).width > 720;
     final tvMode = ref.watch(tvModeNotifierProvider);
 
     final entries = _navEntries(isM3u, l);

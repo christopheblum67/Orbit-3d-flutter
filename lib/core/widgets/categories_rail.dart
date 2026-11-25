@@ -168,10 +168,13 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
             vertical: widget.compact ? 14 : 10,
           ),
           decoration: BoxDecoration(
-            color: selected
-                ? scheme.primaryContainer.withValues(alpha: 0.5)
-                : showRing
-                    ? scheme.primary.withValues(alpha: 0.08)
+            color: showRing
+                ? Color.alphaBlend(
+                    scheme.primaryContainer.withValues(alpha: 0.5),
+                    scheme.surfaceContainerLow,
+                  )
+                : selected
+                    ? scheme.primaryContainer.withValues(alpha: 0.5)
                     : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(

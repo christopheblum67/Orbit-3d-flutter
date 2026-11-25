@@ -6,11 +6,55 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/drawer_menu_button.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/utils/device_info.dart';
 import 'package:orbit_3d_flutter/features/home_shell.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 
 void main() {
+  testWidgets('compact detected TV does not display mobile navigation',
+      (tester) async {
+    tester.view.physicalSize = const Size(640, 360);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = TvModeController();
+    addTearDown(controller.dispose);
+    final router = GoRouter(routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, __) => const HomeShell(
+          child: SizedBox.expand(key: ValueKey('home-content')),
+        ),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        tvModeControllerProvider.overrideWithValue(controller),
+        sourceTypeProvider.overrideWith((ref) async => 'xtream'),
+      ],
+      child: MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsOneWidget);
+    await controller.updateFromDetection(const DeviceDetectionResult(
+      deviceType: DeviceType.tv,
+      isTv: true,
+      confidence: 1,
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(tester.getRect(find.byKey(const ValueKey('home-content'))).bottom,
+        tester.view.physicalSize.height);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('M3U drawer exposes the VOD and series destinations',
       (tester) async {
     final scaffoldKey = GlobalKey<ScaffoldState>();

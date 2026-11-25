@@ -53,9 +53,11 @@ class TvSafeArea extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.watch(tvModeControllerProvider);
-    final bgColor = backgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
-    final applyOverscan = controller.enabled && controller.isRealTv;
+    final bgColor =
+        backgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
+    final enabled = ref.watch(tvModeProvider);
+    final isRealTv = ref.watch(realTvProvider);
+    final applyOverscan = enabled && isRealTv;
 
     return ColoredBox(
       color: bgColor,

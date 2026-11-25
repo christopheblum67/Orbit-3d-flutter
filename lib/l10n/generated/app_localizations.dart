@@ -5566,6 +5566,12 @@ abstract class AppLocalizations {
   /// **'Ajouter aux favoris'**
   String get favoritesAdd;
 
+  /// No description provided for @recentRemove.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer des vus'**
+  String get recentRemove;
+
   /// No description provided for @favoritesRemove.
   ///
   /// In fr, this message translates to:

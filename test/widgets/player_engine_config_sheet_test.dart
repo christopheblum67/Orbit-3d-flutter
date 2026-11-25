@@ -10,6 +10,56 @@ import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final size in [
+    const Size(1280, 720),
+    const Size(960, 540),
+    const Size(800, 480),
+  ]) {
+    for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
+      testWidgets('all engine options fit without scrolling in $language $size',
+          (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(ProviderScope(
+          child: MaterialApp(
+            locale: Locale(language),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showPlayerEngineConfigSheet(context),
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ));
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final scroll = tester.widget<SingleChildScrollView>(
+          find.byType(SingleChildScrollView).first,
+        );
+        final viewport = tester.getRect(find.byType(SingleChildScrollView).first);
+        final grid = tester.getRect(find.byKey(const ValueKey('engine-grid')));
+        final options =
+            tester.getRect(find.byKey(const ValueKey('engine-side-options')));
+        expect(scroll.controller!.position.maxScrollExtent, 0,
+            reason: '$language $size viewport=$viewport grid=$grid '
+                'options=$options');
+        for (final key in ['engine-grid', 'engine-side-options']) {
+          final rect = tester.getRect(find.byKey(ValueKey(key)));
+          expect(rect.top, greaterThanOrEqualTo(viewport.top));
+          expect(rect.bottom, lessThanOrEqualTo(viewport.bottom));
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
     testWidgets('side options fit the two-by-two grid in $language',
         (tester) async {
@@ -70,7 +120,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       expect(tester.getSize(find.byType(PlayerEngineConfigSheet)).width,
-          lessThanOrEqualTo(600));
+          lessThanOrEqualTo(1000));
       final grid = tester.getRect(find.byKey(const ValueKey('engine-grid')));
       final options =
           tester.getRect(find.byKey(const ValueKey('engine-side-options')));
@@ -429,7 +479,7 @@ void main() {
     await tester.pumpAndSettle();
     final sheetHeight =
         tester.getSize(find.byType(PlayerEngineConfigSheet)).height;
-    expect(sheetHeight, closeTo(480 * 0.86, 0.1));
+    expect(sheetHeight, lessThanOrEqualTo(480 * 0.86));
     final engines = find.byType(DropdownButton<PlayerEngine>);
     final checkboxNodes = [
       for (final checkbox

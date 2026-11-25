@@ -17,11 +17,16 @@ import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 /// **Moteur de Secours (Fallback)**. Les choix ne sont appliqués qu'à
 /// l'appui sur **Sauvegarder** ; **Annuler** referme sans rien persister.
 Future<void> showPlayerEngineConfigSheet(BuildContext context) {
+  final screen = MediaQuery.sizeOf(context);
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
-    constraints: const BoxConstraints(maxWidth: 600),
+    constraints: BoxConstraints(
+      maxWidth: screen.width > screen.height
+          ? math.min(1000, screen.width - 32)
+          : 600,
+    ),
     builder: (_) => const PlayerEngineConfigSheet(),
   );
 }
@@ -382,6 +387,9 @@ class _PlayerEngineConfigSheetState
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final size = MediaQuery.sizeOf(context);
+    final compactLandscape =
+        size.width > size.height && size.height < 600;
 
     // Build dropdown items once
     final dropdownItems = [
@@ -417,7 +425,9 @@ class _PlayerEngineConfigSheetState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+                padding: compactLandscape
+                    ? const EdgeInsets.fromLTRB(20, 4, 20, 0)
+                    : const EdgeInsets.fromLTRB(20, 18, 20, 6),
                 child: Row(
                   children: [
                     Icon(
@@ -516,7 +526,9 @@ class _PlayerEngineConfigSheetState
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+                        padding: compactLandscape
+                            ? const EdgeInsets.fromLTRB(4, 2, 4, 2)
+                            : const EdgeInsets.fromLTRB(4, 6, 4, 8),
                         child: Text(
                           l.engineSelectionHelp,
                           style: TextStyle(
@@ -529,7 +541,7 @@ class _PlayerEngineConfigSheetState
                         builder: (context, constraints) {
                           final sideBySide = constraints.maxWidth >= 500;
                           final gridWidth = sideBySide
-                              ? (constraints.maxWidth - 12) * 0.60
+                              ? (constraints.maxWidth - 12) * 0.54
                               : constraints.maxWidth;
                           final grid = Wrap(
                             key: const ValueKey('engine-grid'),
@@ -541,6 +553,7 @@ class _PlayerEngineConfigSheetState
                                   width: (gridWidth - 8) / 2,
                                   child: _TypeSection(
                                     type: type,
+                                    compact: sideBySide,
                                     config: _draft[type]!,
                                     onPrimary: (e) => _setPrimary(type, e),
                                     onFallback: (e) => _setFallback(type, e),
@@ -587,8 +600,7 @@ class _PlayerEngineConfigSheetState
                                 ),
                             ],
                           );
-                          final options = Column(
-                            key: const ValueKey('engine-side-options'),
+                          final decoder = Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               AppCard(
@@ -655,7 +667,11 @@ class _PlayerEngineConfigSheetState
                                           fontSize: 12,
                                           color: scheme.onSurfaceVariant)),
                                 ),
-                              const SizedBox(height: 4),
+                            ],
+                          );
+                          final player = Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
                               Text(l.tabPlayer,
                                   style: const TextStyle(
                                       fontSize: 12,
@@ -707,6 +723,25 @@ class _PlayerEngineConfigSheetState
                               ),
                             ],
                           );
+                          final options = sideBySide
+                              ? Row(
+                                  key: const ValueKey('engine-side-options'),
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: decoder),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: player),
+                                  ],
+                                )
+                              : Column(
+                                  key: const ValueKey('engine-side-options'),
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    decoder,
+                                    const SizedBox(height: 4),
+                                    player,
+                                  ],
+                                );
                           if (!sideBySide) {
                             return Column(children: [
                               grid,
@@ -729,7 +764,9 @@ class _PlayerEngineConfigSheetState
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+                padding: compactLandscape
+                    ? const EdgeInsets.fromLTRB(16, 2, 16, 4)
+                    : const EdgeInsets.fromLTRB(16, 6, 16, 14),
                 child: Row(
                   children: [
                     Expanded(
@@ -819,6 +856,7 @@ class _PlayerEngineConfigSheetState
 class _TypeSection extends StatelessWidget {
   const _TypeSection({
     required this.type,
+    required this.compact,
     required this.config,
     required this.onPrimary,
     required this.onFallback,
@@ -835,6 +873,7 @@ class _TypeSection extends StatelessWidget {
   });
 
   final PlaybackContentType type;
+  final bool compact;
   final PlayerPerTypeConfig config;
   final ValueChanged<PlayerEngine> onPrimary;
   final ValueChanged<PlayerEngine> onFallback;
@@ -938,6 +977,7 @@ class _TypeSection extends StatelessWidget {
           const SizedBox(height: 6),
           _EngineRow(
             label: l.primaryEngine,
+            compact: compact,
             value: config.primary,
             onChanged: onPrimary,
             focusNode: primaryFocusNode,
@@ -952,6 +992,7 @@ class _TypeSection extends StatelessWidget {
           ),
           _EngineRow(
             label: l.fallbackEngine,
+            compact: compact,
             value: config.fallback,
             onChanged: onFallback,
             focusNode: fallbackFocusNode,
@@ -973,6 +1014,7 @@ class _TypeSection extends StatelessWidget {
 class _EngineRow extends StatelessWidget {
   const _EngineRow({
     required this.label,
+    required this.compact,
     required this.value,
     required this.onChanged,
     required this.focusNode,
@@ -985,6 +1027,7 @@ class _EngineRow extends StatelessWidget {
   });
 
   final String label;
+  final bool compact;
   final PlayerEngine value;
   final ValueChanged<PlayerEngine> onChanged;
   final FocusNode focusNode;
@@ -1006,39 +1049,46 @@ class _EngineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final title = Text(
+      label,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+    final dropdown = Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 132),
+        child: buildTvDropdown(
+          focusNode: focusNode,
+          nextFocusNode: nextFocusNode,
+          prevFocusNode: prevFocusNode,
+          leftFocusNode: leftFocusNode,
+          rightFocusNode: rightFocusNode,
+          value: value,
+          onChanged: onChanged,
+          items: dropdownItems,
+        ),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+      child: compact
+          ? Row(
+              children: [
+                Expanded(flex: 4, child: title),
+                const SizedBox(width: 4),
+                Expanded(flex: 6, child: dropdown),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [title, dropdown],
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 132),
-              child: buildTvDropdown(
-                focusNode: focusNode,
-                nextFocusNode: nextFocusNode,
-                prevFocusNode: prevFocusNode,
-                leftFocusNode: leftFocusNode,
-                rightFocusNode: rightFocusNode,
-                value: value,
-                onChanged: onChanged,
-                items: dropdownItems,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

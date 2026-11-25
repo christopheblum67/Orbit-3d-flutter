@@ -937,6 +937,7 @@
     "historyEmptyHint":  "ستظهر مشاهداتك الأخيرة هنا.",
     "refreshAction":  "تحديث",
     "favoritesAdd":  "إضافة إلى المفضلة",
+    "recentRemove": "إزالة من المشاهدة",
     "favoritesRemove":  "إزالة من المفضلة",
     "favoritesNeedScope":  "يلزم وجود ملف شخصي واشتراك نشطين.",
     "favoritesReplayHint":  "اضغط على قلب الإعادة للعثور عليها هنا.",

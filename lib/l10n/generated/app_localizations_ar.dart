@@ -3086,6 +3086,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get favoritesAdd => 'إضافة إلى المفضلة';
 
   @override
+  String get recentRemove => 'إزالة من المشاهدة';
+
+  @override
   String get favoritesRemove => 'إزالة من المفضلة';
 
   @override

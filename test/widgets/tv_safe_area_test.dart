@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/utils/device_info.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 
 /// Le [SafeArea] réellement construit par [TvSafeArea] : c'est lui qui porte
@@ -43,6 +46,45 @@ Future<void> _pumpTvSafeArea(
 }
 
 void main() {
+  for (final isTv in [true, false]) {
+    for (final manual in [true, false]) {
+      testWidgets(
+          'detection globale tardive et interaction, TV=$isTv, manuel=$manual',
+          (tester) async {
+        final detection = Completer<DeviceDetectionResult>();
+        final controller = TvModeController();
+        if (manual) controller.enable();
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(ProviderScope(
+          overrides: [
+            tvModeControllerProvider.overrideWithValue(controller),
+            deviceDetectionProvider.overrideWith((ref) => detection.future),
+          ],
+          child: const MaterialApp(
+            home: TvModeDetector(
+              child: Scaffold(body: TvSafeArea(child: Text('Content'))),
+            ),
+          ),
+        ));
+        expect(_safeAreaOf(tester).minimum, EdgeInsets.zero);
+        detection.complete(DeviceDetectionResult(
+          deviceType: isTv ? DeviceType.tv : DeviceType.phone,
+          isTv: isTv,
+          confidence: 1,
+        ));
+        await tester.pumpAndSettle();
+        expect(controller.enabled, isTv || manual);
+        expect(_safeAreaOf(tester).minimum,
+            isTv ? tvOverscanInsets : EdgeInsets.zero);
+        await tester.tap(find.text('Content'));
+        await tester.pump();
+        expect(controller.enabled, isTv);
+        expect(_safeAreaOf(tester).minimum,
+            isTv ? tvOverscanInsets : EdgeInsets.zero);
+      });
+    }
+  }
+
   testWidgets(
       'un appareil non-TV ne recoit AUCUN overscan, meme si le mode TV a ete active',
       (tester) async {

@@ -72,6 +72,41 @@ void main() {
   });
 
   group('RecentlyWatchedNotifier', () {
+    test('remove persists only the selected entry for the current profile',
+        () async {
+      final service = RecentlyWatchedService();
+      await service.init();
+      final otherProfile = RecentEntry(
+        type: ContentType.vod,
+        id: '1',
+        title: 'Film',
+        profileId: 'other_profile',
+        watchedAt: DateTime(2026),
+      );
+      await service.save(otherProfile);
+      final container = ProviderContainer(overrides: [
+        recentlyWatchedServiceProvider.overrideWithValue(service),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => UserProfile(
+              id: 'test_profile',
+              firstName: 'Test',
+              dateOfBirth: DateTime(2000),
+              gender: 'male',
+              favoriteGenres: const [],
+            )),
+      ]);
+      addTearDown(container.dispose);
+      final notifier = container.read(recentlyWatchedProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      await notifier.record(ContentType.vod, '1', 'Film');
+      await notifier.record(ContentType.series, '1', 'Série');
+      await notifier.remove(ContentType.vod, '1');
+      expect(notifier.forType(ContentType.vod), isEmpty);
+      expect(notifier.forType(ContentType.series), hasLength(1));
+      expect((await service.loadForProfile('test_profile')).single.type,
+          ContentType.series);
+      expect(await service.loadForProfile('other_profile'), [otherProfile]);
+    });
+
     test('record remplace le doublon et remonte en tête', () async {
       final service = RecentlyWatchedService();
       await service.init();

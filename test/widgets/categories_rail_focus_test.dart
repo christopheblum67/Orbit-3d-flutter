@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orbit_3d_flutter/core/theme/app_theme.dart';
 import 'package:orbit_3d_flutter/core/widgets/categories_rail.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 
@@ -214,10 +215,13 @@ void main() {
               .color;
       expect(
         color,
-        Theme.of(tester.element(tile))
-            .colorScheme
-            .primary
-            .withValues(alpha: 0.08),
+        Color.alphaBlend(
+          Theme.of(tester.element(tile))
+              .colorScheme
+              .primaryContainer
+              .withValues(alpha: 0.5),
+          Theme.of(tester.element(tile)).colorScheme.surfaceContainerLow,
+        ),
       );
       final box = tester.getRect(background);
       final text = tester.getRect(label.first);
@@ -313,5 +317,101 @@ void main() {
       );
     }
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('one and two line categories have the same solid focus fill',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final boundaryKey = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(
+          body: RepaintBoundary(
+            key: boundaryKey,
+            child: CategoriesRail(
+              categories: const [
+                MediaCategory(id: 'short', name: 'Tous', count: 19),
+                MediaCategory(
+                  id: 'recent',
+                  name: 'SÉRIES RÉCENTES',
+                ),
+                MediaCategory(
+                  id: 'comedy',
+                  name: 'COMÉDIE DRAMATIQUE',
+                ),
+              ],
+              selectedId: 'short',
+              focusSelectedOnMount: true,
+              onSelected: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(boundaryKey),
+    );
+    final origin = tester.getTopLeft(find.byKey(boundaryKey));
+
+    Future<List<List<int>>> sampleFill(String id, int expectedLines) async {
+      final tile = find.byKey(ValueKey(id));
+      final background =
+          find.descendant(of: tile, matching: find.byType(Container)).first;
+      final label =
+          find.descendant(of: tile, matching: find.byType(RichText)).first;
+      final paragraph = tester.renderObject<RenderParagraph>(label);
+      final boxes = paragraph.getBoxesForSelection(TextSelection(
+        baseOffset: 0,
+        extentOffset: paragraph.text.toPlainText().length,
+      ));
+      final rows = <double>[];
+      for (final box in boxes) {
+        final center = box.toRect().center.dy;
+        if (!rows.any((row) => (row - center).abs() < 5)) {
+          rows.add(center);
+        }
+      }
+      expect(rows.length, expectedLines, reason: '$id: $boxes');
+      final rect = tester.getRect(background);
+      final textOrigin = tester.getTopLeft(label);
+      final xValues = [
+        (rect.left - origin.dx + 12).round(),
+        (rect.right - origin.dx - 12).round(),
+      ];
+      return (await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        final data = bytes!.buffer.asUint8List();
+        final result = [
+          for (final row in rows)
+            for (final x in xValues)
+              data.sublist(
+                (((textOrigin.dy - origin.dy + row).round() * image.width) +
+                        x) *
+                    4,
+                (((textOrigin.dy - origin.dy + row).round() * image.width) +
+                            x) *
+                        4 +
+                    3,
+              ),
+        ];
+        image.dispose();
+        return result;
+      }))!;
+    }
+
+    final reference = (await sampleFill('short', 1)).first;
+    for (final id in ['recent', 'comedy']) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      for (final pixel in await sampleFill(id, 2)) {
+        expect(pixel, reference, reason: 'entire focus fill for $id');
+      }
+    }
   });
 }

@@ -103,6 +103,22 @@ class RecentlyWatchedNotifier extends Notifier<Map<String, RecentEntry>> {
       ..sort((a, b) => b.watchedAt.compareTo(a.watchedAt));
   }
 
+  /// Retire une entrée du profil courant sans effacer sa progression.
+  Future<void> remove(ContentType type, String id) async {
+    final profileId = ref.read(currentProfileProvider)?.id;
+    if (profileId == null) return;
+    final key = '$profileId:${type.name}:$id';
+    final entry = state[key];
+    if (entry == null) return;
+    await ref.read(recentlyWatchedServiceProvider).remove(key);
+    if (!ref.mounted || ref.read(currentProfileProvider)?.id != profileId) {
+      return;
+    }
+    if (identical(state[key], entry)) {
+      state = Map<String, RecentEntry>.from(state)..remove(key);
+    }
+  }
+
   /// Efface les récemment regardés du profil courant (les autres profils
   /// ne sont pas touchés).
   Future<void> clearForCurrentProfile() async {

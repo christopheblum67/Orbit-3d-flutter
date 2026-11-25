@@ -58,10 +58,9 @@ class TvModeController extends ChangeNotifier {
 
   /// Met à jour depuis la détection automatique
   Future<void> updateFromDetection(DeviceDetectionResult result) async {
+    final wasRealTv = isRealTv;
+    final wasEnabled = _enabled;
     _detectionResult = result;
-    // Diagnostic : une seule ligne par résultat. Si l'appelant réinscrit son
-    // post-frame callback (c'est le cas de `OrbitApp` en cours de correction),
-    // la garde évite de noyer logcat.
     if (!_detectionLogged) {
       _detectionLogged = true;
       LoggerService.instance.info(
@@ -76,8 +75,10 @@ class TvModeController extends ChangeNotifier {
       if (!_enabled) {
         _enabled = true;
         LoggerService.instance.info('TVMODE ON (auto-detected)');
-        notifyListeners();
       }
+    }
+    if (wasEnabled != _enabled || wasRealTv != isRealTv) {
+      notifyListeners();
     }
     // Si pas TV détecté automatiquement, on garde l'état actuel
     // (peut être activé manuellement plus tard)
@@ -101,6 +102,10 @@ final tvModeControllerProvider = Provider<TvModeController>(
   },
 );
 
+final deviceDetectionProvider = FutureProvider<DeviceDetectionResult>(
+  (ref) => DeviceInfoUtils.detectDeviceType(),
+);
+
 class _TvModeValue extends Notifier<bool> {
   @override
   bool build() {
@@ -114,6 +119,19 @@ class _TvModeValue extends Notifier<bool> {
 
 /// Provider booléen réactif au contrôleur central.
 final tvModeProvider = NotifierProvider<_TvModeValue, bool>(_TvModeValue.new);
+
+class _RealTvValue extends Notifier<bool> {
+  @override
+  bool build() {
+    final controller = ref.watch(tvModeControllerProvider);
+    void listener() => state = controller.isRealTv;
+    controller.addListener(listener);
+    ref.onDispose(() => controller.removeListener(listener));
+    return controller.isRealTv;
+  }
+}
+
+final realTvProvider = NotifierProvider<_RealTvValue, bool>(_RealTvValue.new);
 
 /// Provider pour tracker si la pré-config TV a été faite
 /// Stocké en persistant via StorageService

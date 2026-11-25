@@ -40,6 +40,9 @@ class UnifiedSettingsScreen extends ConsumerStatefulWidget {
 class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen> {
   @override
   Widget build(BuildContext context) {
+    final tvMode = ref.watch(tvModeProvider);
+    final fitTv = (ref.watch(realTvProvider) || tvMode) &&
+        MediaQuery.orientationOf(context) == Orientation.landscape;
     final groups = [
       ..._AccountSection.groups(context),
       ..._AdvancedSection.groups(context, ref),
@@ -87,8 +90,6 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen> {
           ),
           child: LayoutBuilder(
             builder: (context, viewport) {
-              final fitTv = ref.watch(tvModeControllerProvider).isRealTv &&
-                  MediaQuery.orientationOf(context) == Orientation.landscape;
               final sizing = fitTv
                   ? _SettingsSizing.forViewport(
                       context, viewport, groups, standalone)
@@ -107,31 +108,44 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen> {
                       final cellWidth =
                           (constraints.maxWidth - gap * (columns - 1)) /
                               columns;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Wrap(
-                            spacing: gap,
-                            runSpacing: gap,
-                            children: [
-                              for (final group in groups)
-                                SizedBox(
-                                  width: fitTv
-                                      ? constraints.maxWidth
-                                      : cellWidth *
+                      return ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: fitTv
+                              ? (viewport.maxHeight - 16)
+                                  .clamp(0.0, double.infinity)
+                              : 0,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: fitTv
+                              ? MainAxisAlignment.spaceBetween
+                              : MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (fitTv)
+                              ...groups
+                            else ...[
+                              Wrap(
+                                spacing: gap,
+                                runSpacing: gap,
+                                children: [
+                                  for (final group in groups)
+                                    SizedBox(
+                                      width: cellWidth *
                                               group.children.length
                                                   .clamp(1, columns) +
                                           gap *
                                               (group.children.length
                                                       .clamp(1, columns) -
                                                   1),
-                                  child: group,
-                                ),
+                                      child: group,
+                                    ),
+                                ],
+                              ),
+                              SizedBox(height: gap),
                             ],
-                          ),
-                          SizedBox(height: gap),
-                          _SettingsGrid(children: standalone),
-                        ],
+                            _SettingsGrid(children: standalone),
+                          ],
+                        ),
                       );
                     },
                   ),
@@ -186,7 +200,7 @@ class _SettingsSizing {
             TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700),
           );
       final headingStyle = labelStyle.copyWith(letterSpacing: 0.8);
-      var reserved = 16.0 + gap * 2 + 3 * 6.0;
+      var reserved = 28.0 + gap * 2 + 3 * 6.0;
       for (final group in groups) {
         reserved += textHeight(
               group.title.toUpperCase(),
@@ -199,13 +213,14 @@ class _SettingsSizing {
       return reserved + rowLabels(standalone, width, labelStyle);
     }
 
-    var fontSize = 12.0;
+    var fontSize = (viewport.maxHeight * 0.027).clamp(8.0, 30.0);
     var reserved = reservedFor(fontSize);
     while (fontSize > 8 && reserved + 72 > viewport.maxHeight) {
       fontSize -= 0.5;
       reserved = reservedFor(fontSize);
     }
-    final diameter = ((viewport.maxHeight - reserved) / 3).clamp(24.0, 160.0);
+    final diameter =
+        ((viewport.maxHeight - reserved) / 3).clamp(16.0, double.infinity);
     return _SettingsSizing(diameter, fontSize);
   }
 }
@@ -275,9 +290,11 @@ class _SettingsGrid extends StatelessWidget {
     return LayoutBuilder(builder: (context, constraints) {
       final gap =
           _SettingsSizingScope.of(context) != null ? _SettingsSizing.gap : 6.0;
-      final columns = ((constraints.maxWidth + gap) / 78)
-          .floor()
-          .clamp(1, children.length.clamp(1, 6));
+      final columns = _SettingsSizingScope.of(context) != null
+          ? children.length.clamp(1, 6)
+          : ((constraints.maxWidth + gap) / 78)
+              .floor()
+              .clamp(1, children.length.clamp(1, 6));
       final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
       return Column(
         children: [
@@ -324,8 +341,7 @@ class _NavTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    ref.watch(tvModeProvider);
-    final isTv = ref.watch(tvModeControllerProvider).isRealTv;
+    final isTv = ref.watch(realTvProvider);
     final sizing = _SettingsSizingScope.of(context);
     return LayoutBuilder(builder: (context, constraints) {
       final targetSize = sizing?.diameter ??
@@ -336,6 +352,7 @@ class _NavTile extends ConsumerWidget {
                   : 78.0);
       final diameter = (constraints.maxWidth - 6).clamp(0.0, targetSize);
       return TvFocus(
+        key: ValueKey('settings-tile-$title'),
         autofocus: autofocus,
         onActivate: onTap,
         enableTvEffects: false,
@@ -343,9 +360,16 @@ class _NavTile extends ConsumerWidget {
           builder: (context) {
             final focused = Focus.of(context).hasFocus;
             return ExcludeFocus(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: focused
+                      ? Border.all(color: scheme.primary, width: 2)
+                      : null,
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
                   onTap: onTap,
                   borderRadius: BorderRadius.circular(16),
                   child: Padding(
@@ -355,6 +379,7 @@ class _NavTile extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
+                          key: ValueKey('settings-icon-$title'),
                           width: diameter,
                           height: diameter,
                           decoration: BoxDecoration(
@@ -383,9 +408,26 @@ class _NavTile extends ConsumerWidget {
                                     height: diameter * 0.65,
                                     excludeFromSemantics: true,
                                   )
-                                : Icon(icon,
-                                    size: diameter * 0.46,
-                                    color: scheme.primary),
+                                : Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Icon(icon,
+                                          size: diameter * 0.46,
+                                          color: scheme.primary),
+                                      Positioned(
+                                        right: diameter * 0.23,
+                                        top: diameter * 0.23,
+                                        child: Container(
+                                          width: diameter * 0.07,
+                                          height: diameter * 0.07,
+                                          decoration: const BoxDecoration(
+                                            color: Colors.orange,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                           ),
                         ),
                         SizedBox(height: sizing == null ? 4 : 2),
@@ -413,6 +455,7 @@ class _NavTile extends ConsumerWidget {
                     ),
                   ),
                 ),
+              ),
               ),
             );
           },
@@ -693,6 +736,7 @@ class _PlayerAudioSection {
       ),
     );
   }
+
 }
 
 class _CombinedSettingsDialog extends StatefulWidget {
@@ -707,15 +751,19 @@ class _CombinedSettingsDialogState extends State<_CombinedSettingsDialog>
     with SingleTickerProviderStateMixin {
   late final TabController _controller;
   final _tabs = List.generate(4, (index) => FocusNode());
-  final _visitedTabs = <int>{0};
+  late final Set<int> _visitedTabs;
 
   @override
   void initState() {
     super.initState();
-    _controller = TabController(length: _tabs.length, vsync: this);
+    _visitedTabs = {0};
+    _controller = TabController(
+      length: _tabs.length,
+      vsync: this,
+    );
     _controller.addListener(_onTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _tabs.first.requestFocus();
+      if (mounted) _tabs[0].requestFocus();
     });
   }
 
@@ -1328,7 +1376,7 @@ class _AdvancedEntry extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final size =
-        _SettingsSizingScope.of(context)?.diameter.clamp(24.0, 60.0) ?? 60.0;
+        _SettingsSizingScope.of(context)?.diameter.clamp(16.0, 60.0) ?? 60.0;
     return Semantics(
       button: true,
       label: l.advancedHiddenHint,

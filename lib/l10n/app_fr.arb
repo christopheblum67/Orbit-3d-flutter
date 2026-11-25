@@ -1563,6 +1563,7 @@
     "historyEmptyHint":  "Tes lectures récentes apparaîtront ici.",
     "refreshAction":  "Actualiser",
     "favoritesAdd":  "Ajouter aux favoris",
+    "recentRemove": "Retirer des vus",
     "favoritesRemove":  "Retirer des favoris",
     "favoritesNeedScope":  "Un profil et un abonnement actifs sont nécessaires.",
     "favoritesReplayHint":  "Appuie sur le cœur d’un replay pour le retrouver ici.",
