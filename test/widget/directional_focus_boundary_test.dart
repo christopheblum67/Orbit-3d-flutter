@@ -4,38 +4,50 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/widgets/directional_focus_boundary.dart';
 
 void main() {
-  testWidgets('vertical grid stays inside at both edges and can exit sideways',
+  testWidgets('vertical grid blocks the bottom and can exit up or sideways',
       (tester) async {
     final nodes = List.generate(29, (_) => FocusNode());
     final category = FocusNode();
+    final above = FocusNode();
+    final below = FocusNode();
     addTearDown(() {
       for (final node in nodes) {
         node.dispose();
       }
       category.dispose();
+      above.dispose();
+      below.dispose();
     });
 
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
-        body: Row(
+        body: Column(
           children: [
-            Focus(focusNode: category, child: const SizedBox(width: 100)),
+            Focus(focusNode: above, child: const SizedBox(height: 50)),
             Expanded(
-              child: DirectionalFocusBoundary(
-                lockedAxis: Axis.vertical,
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisExtent: 100,
+              child: Row(
+                children: [
+                  Focus(focusNode: category, child: const SizedBox(width: 100)),
+                  Expanded(
+                    child: DirectionalFocusBoundary(
+                      lockedAxis: Axis.vertical,
+                      child: GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          mainAxisExtent: 100,
+                        ),
+                        itemCount: nodes.length,
+                        itemBuilder: (_, index) => Focus(
+                          focusNode: nodes[index],
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ),
                   ),
-                  itemCount: nodes.length,
-                  itemBuilder: (_, index) => Focus(
-                    focusNode: nodes[index],
-                    child: const SizedBox.expand(),
-                  ),
-                ),
+                ],
               ),
             ),
+            Focus(focusNode: below, child: const SizedBox(height: 50)),
           ],
         ),
       ),
@@ -49,7 +61,9 @@ void main() {
     nodes[0].requestFocus();
     await tester.pump();
     await press(LogicalKeyboardKey.arrowUp);
-    expect(nodes[0].hasPrimaryFocus, isTrue);
+    expect(above.hasPrimaryFocus, isTrue);
+    nodes[0].requestFocus();
+    await tester.pump();
     for (var i = 0; i < 12; i++) {
       await press(LogicalKeyboardKey.arrowDown);
     }
@@ -62,11 +76,16 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
     expect(nodes[28].hasPrimaryFocus, isTrue);
+    expect(below.hasPrimaryFocus, isFalse);
     await press(LogicalKeyboardKey.arrowLeft);
-    for (var i = 0; i < 12; i++) {
+    for (var i = 0; i < 9; i++) {
       await press(LogicalKeyboardKey.arrowUp);
     }
     expect(nodes[0].hasPrimaryFocus, isTrue);
+    await press(LogicalKeyboardKey.arrowUp);
+    expect(above.hasPrimaryFocus, isTrue);
+    nodes[0].requestFocus();
+    await tester.pump();
     await press(LogicalKeyboardKey.arrowLeft);
     expect(category.hasPrimaryFocus, isTrue);
     await press(LogicalKeyboardKey.arrowRight);

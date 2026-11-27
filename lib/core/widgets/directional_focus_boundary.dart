@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Stops directional traversal at the edges of [lockedAxis] only.
+/// Stops vertical traversal at the bottom, or horizontal traversal at both ends.
 class DirectionalFocusBoundary extends StatefulWidget {
   const DirectionalFocusBoundary({
     super.key,
@@ -43,6 +43,9 @@ class _DirectionalFocusBoundaryState extends State<DirectionalFocusBoundary> {
     final isVertical = direction == TraversalDirection.up ||
         direction == TraversalDirection.down;
     if (isVertical != (widget.lockedAxis == Axis.vertical)) {
+      return KeyEventResult.ignored;
+    }
+    if (direction == TraversalDirection.up) {
       return KeyEventResult.ignored;
     }
     final focus = FocusManager.instance.primaryFocus;

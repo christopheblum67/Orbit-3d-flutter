@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/navigation/app_router.dart' as app;
+import 'package:orbit_3d_flutter/core/widgets/tv_primary_button.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -197,8 +198,17 @@ void main() {
       Focus.of(tester.element(genre)).requestFocus();
       await tester.pumpAndSettle();
       expect(genreColor(), isNot(unfocusedColor));
+      expect(genreColor(), TvPrimaryButton.amber);
+      expect(tester.widget<Text>(genre).style!.color, Colors.black);
       await tapVisible(find.text('Aventure'));
       final selectedFocusedColor = genreColor();
+      expect(selectedFocusedColor, TvPrimaryButton.amber);
+      expect(tester.widget<Text>(genre).style!.color, Colors.black);
+      final selectedIcon = find.descendant(
+        of: find.ancestor(of: genre, matching: find.byType(AnimatedContainer)).first,
+        matching: find.byIcon(Icons.check_circle),
+      );
+      expect(tester.widget<Icon>(selectedIcon).color, Colors.black);
       Focus.of(tester.element(genre)).unfocus();
       await tester.pumpAndSettle();
       expect(genreColor(), isNot(selectedFocusedColor));

@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/core/widgets/dpad_scope.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_primary_button.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -1038,14 +1039,14 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
               : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             color: distinctFocus
-                ? scheme.tertiaryContainer
+                ? TvPrimaryButton.amber
                 : widget.selected || _focused
                     ? scheme.primaryContainer
                     : scheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: distinctFocus
-                  ? scheme.tertiary
+                  ? Colors.white
                   : widget.selected
                       ? scheme.primary
                       : _focused
@@ -1056,7 +1057,10 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
             boxShadow: _focused
                 ? [
                     BoxShadow(
-                      color: scheme.tertiary.withValues(alpha: 0.35),
+                      color: (distinctFocus
+                              ? TvPrimaryButton.amber
+                              : scheme.tertiary)
+                          .withValues(alpha: 0.35),
                       blurRadius: 14,
                       offset: const Offset(0, 5),
                     ),
@@ -1071,7 +1075,7 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
                   Icons.check_circle,
                   size: 17,
                   color: distinctFocus
-                      ? scheme.onTertiaryContainer
+                      ? Colors.black
                       : scheme.primary,
                 ),
                 const SizedBox(width: 6),
@@ -1083,7 +1087,7 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
                     fontSize: widget.compact ? 13 : 13.5,
                     fontWeight: FontWeight.w700,
                     color: distinctFocus
-                        ? scheme.onTertiaryContainer
+                        ? Colors.black
                         : widget.selected || _focused
                             ? scheme.onPrimaryContainer
                             : scheme.onSurface,
