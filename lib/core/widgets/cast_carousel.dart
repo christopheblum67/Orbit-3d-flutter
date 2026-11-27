@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/directional_focus_boundary.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
@@ -76,6 +77,8 @@ class CastCarousel extends StatelessWidget {
         const SizedBox(height: 12),
         SizedBox(
           height: imageSize + math.max(showCharacter ? 64 : 40, textHeight),
+          child: DirectionalFocusBoundary(
+            lockedAxis: Axis.horizontal,
           child: FocusTraversalGroup(
             policy: ReadingOrderTraversalPolicy(),
             child: ListView.separated(
@@ -94,6 +97,7 @@ class CastCarousel extends StatelessWidget {
                   onTap: () => onActorTap?.call(actor),
                 );
               },
+              ),
             ),
           ),
         ),
@@ -297,6 +301,8 @@ class CompactCastCarousel extends StatelessWidget {
         ],
         SizedBox(
           height: 95,
+          child: DirectionalFocusBoundary(
+            lockedAxis: Axis.horizontal,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
@@ -309,6 +315,7 @@ class CompactCastCarousel extends StatelessWidget {
                 onTap: () => onActorTap?.call(actor),
               );
             },
+            ),
           ),
         ),
       ],

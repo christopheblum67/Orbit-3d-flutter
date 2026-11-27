@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/directional_focus_boundary.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/features/vod/widgets/movie_playback_actions.dart';
@@ -160,7 +161,8 @@ class _MovieDetailContent extends ConsumerWidget {
     // Sans identifiant TMDB, la section resterait invisible : on propose un
     // repli sur le catalogue local (même genre), calculé une seule fois.
     final localArgs = (excludeId: movie.id, genre: detail.genre);
-    final localSimilarAsync = detail.tmdbId <= 0 && detail.genre.trim().isNotEmpty
+    final localSimilarAsync =
+        detail.tmdbId <= 0 && detail.genre.trim().isNotEmpty
         ? ref.watch(localSimilarMoviesProvider(localArgs))
         : null;
 
@@ -388,7 +390,8 @@ class _MovieDetailContent extends ConsumerWidget {
                             Text(
                               detail.aiGenerated
                                   ? l.detailAiData
-                                  : l.detailSourceData(detail.dataSource.toUpperCase()),
+                                  : l.detailSourceData(
+                                      detail.dataSource.toUpperCase()),
                               style: textTheme.labelSmall?.copyWith(
                                 color: _getSourceColor(detail.dataSource),
                                 fontWeight: FontWeight.w600,
@@ -439,9 +442,7 @@ class _MovieDetailContent extends ConsumerWidget {
               (detail.keywords.isEmpty && detail.genre.trim().isNotEmpty)) ...[
             const SizedBox(height: 20),
             Text(
-              detail.keywords.isNotEmpty
-                  ? l.detailKeywords
-                  : l.detailGenres,
+              detail.keywords.isNotEmpty ? l.detailKeywords : l.detailGenres,
               style:
                   textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
@@ -616,7 +617,8 @@ class _MovieDetailContent extends ConsumerWidget {
       LoggerService.instance
           .warning('_launchTrailer failed', error: result.errorOrNull);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).detailTrailerFailed)),
+        SnackBar(
+            content: Text(AppLocalizations.of(context).detailTrailerFailed)),
       );
     }
   }
@@ -664,6 +666,8 @@ class _SimilarSection extends ConsumerWidget {
             else
               SizedBox(
                 height: 280,
+                child: DirectionalFocusBoundary(
+                  lockedAxis: Axis.horizontal,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -676,6 +680,7 @@ class _SimilarSection extends ConsumerWidget {
                       onTap: () => onTap(entry),
                     );
                   },
+                  ),
                 ),
               ),
           ],
@@ -735,11 +740,14 @@ class _LocalSimilarSection extends StatelessWidget {
           children: [
             Text(
               title,
-              style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              style:
+                  textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
             SizedBox(
               height: 280,
+              child: DirectionalFocusBoundary(
+                lockedAxis: Axis.horizontal,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -817,6 +825,7 @@ class _LocalSimilarSection extends StatelessWidget {
                 },
               ),
             ),
+            ),
           ],
         );
       },
@@ -829,7 +838,8 @@ class _LocalSimilarSection extends StatelessWidget {
   }
 }
 
-class _SimilarCard extends StatelessWidget {  const _SimilarCard({required this.entry, required this.onTap});
+class _SimilarCard extends StatelessWidget {
+  const _SimilarCard({required this.entry, required this.onTap});
 
   final TmdbRankEntry entry;
   final VoidCallback onTap;
@@ -1075,9 +1085,7 @@ class _CrewToggleButtonState extends ConsumerState<_CrewToggleButton> {
             onPressed: () => setState(() => _expanded = !_expanded),
             icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
             label: Text(
-              _expanded
-                  ? l.detailHideCrew
-                  : l.detailShowCrew,
+              _expanded ? l.detailHideCrew : l.detailShowCrew,
               style:
                   textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/directional_focus_boundary.dart';
 import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -219,7 +220,9 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
         Expanded(
           child: visible.isEmpty
               ? _EmptyCategory(groupId: _selectedGroup)
-              : FocusTraversalGroup(
+              : DirectionalFocusBoundary(
+                  lockedAxis: Axis.vertical,
+                  child: FocusTraversalGroup(
                   policy: OrderedTraversalPolicy(),
                   child: GridView.builder(
                     padding: channelGridPadding,
@@ -245,6 +248,7 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
                         onTap: () => widget.onOpen(channel),
                       );
                     },
+                    ),
                   ),
                 ),
         ),

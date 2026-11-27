@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/core/widgets/edge_locked_focus_group.dart';
+import 'package:orbit_3d_flutter/core/widgets/directional_focus_boundary.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -897,7 +898,9 @@ class _EpisodeCarouselState extends State<_EpisodeCarousel> {
                   ),
                 ),
               ),
-              ListView.builder(
+              DirectionalFocusBoundary(
+                lockedAxis: Axis.horizontal,
+                child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 cacheExtent: 500,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -913,6 +916,7 @@ class _EpisodeCarouselState extends State<_EpisodeCarousel> {
                       setState(() => _focusedIndex = index);
                     }
                   },
+                  ),
                 ),
               ),
             ],

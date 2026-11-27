@@ -803,6 +803,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 _ProfileChoiceChip(
                   label: _genreLabel(l, genre),
                   compact: true,
+                  distinctFocusColor: true,
                   focusNode: index == 0 ? _firstGenreFocus : null,
                   onUp: index == 0 ? _focusName : null,
                   selected: _favoriteGenres.contains(genre),
@@ -977,6 +978,7 @@ class _ProfileChoiceChip extends StatefulWidget {
     this.focusNode,
     this.onUp,
     this.compact = false,
+    this.distinctFocusColor = false,
   });
 
   final String label;
@@ -985,6 +987,7 @@ class _ProfileChoiceChip extends StatefulWidget {
   final FocusNode? focusNode;
   final VoidCallback? onUp;
   final bool compact;
+  final bool distinctFocusColor;
 
   @override
   State<_ProfileChoiceChip> createState() => _ProfileChoiceChipState();
@@ -1001,7 +1004,7 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final highlighted = widget.selected || _focused;
+    final distinctFocus = _focused && widget.distinctFocusColor;
     return Focus(
       focusNode: widget.focusNode,
       onFocusChange: (hasFocus) {
@@ -1034,16 +1037,20 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
               ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
               : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: highlighted
-                ? scheme.primaryContainer
-                : scheme.surfaceContainerHighest,
+            color: distinctFocus
+                ? scheme.tertiaryContainer
+                : widget.selected || _focused
+                    ? scheme.primaryContainer
+                    : scheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: widget.selected
-                  ? scheme.primary
-                  : _focused
-                      ? scheme.tertiary
-                      : scheme.outlineVariant,
+              color: distinctFocus
+                  ? scheme.tertiary
+                  : widget.selected
+                      ? scheme.primary
+                      : _focused
+                          ? scheme.tertiary
+                          : scheme.outlineVariant,
               width: widget.selected ? 2 : (_focused ? 2 : 1),
             ),
             boxShadow: _focused
@@ -1063,7 +1070,9 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
                 Icon(
                   Icons.check_circle,
                   size: 17,
-                  color: scheme.primary,
+                  color: distinctFocus
+                      ? scheme.onTertiaryContainer
+                      : scheme.primary,
                 ),
                 const SizedBox(width: 6),
               ],
@@ -1073,9 +1082,11 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
                   style: TextStyle(
                     fontSize: widget.compact ? 13 : 13.5,
                     fontWeight: FontWeight.w700,
-                    color: highlighted
-                        ? scheme.onPrimaryContainer
-                        : scheme.onSurface,
+                    color: distinctFocus
+                        ? scheme.onTertiaryContainer
+                        : widget.selected || _focused
+                            ? scheme.onPrimaryContainer
+                            : scheme.onSurface,
                   ),
                 ),
               ),

@@ -127,6 +127,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(
         Focus.of(tester.element(find.text('Deuxième film'))).hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(
+        Focus.of(tester.element(find.text('Deuxième film'))).hasPrimaryFocus,
+        isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(
+        Focus.of(tester.element(find.text('Film recommandé'))).hasPrimaryFocus,
+        isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     expect(find.byType(DraggableScrollableSheet), findsOneWidget);

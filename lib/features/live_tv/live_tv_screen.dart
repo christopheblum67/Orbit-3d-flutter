@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/directional_focus_boundary.dart';
 import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -72,6 +73,7 @@ class LiveTvScreen extends ConsumerStatefulWidget {
 
 class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   String _selectedGroup = '';
+
   /// Chaîne ouverte dans la vue de navigation (aperçu live + EPG), ou `null`
   /// quand on est sur la grille.
   ///
@@ -118,7 +120,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             : context.canPop()
                 ? IconButton(
                     icon: const Icon(Icons.arrow_back_rounded),
-                    tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                    tooltip:
+                        MaterialLocalizations.of(context).backButtonTooltip,
                     onPressed: () => context.pop(),
                   )
                 : null,
@@ -277,7 +280,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                         child: DpadSearchField(
                           controller: _searchController,
                           hint: l.searchChannel,
-                          onChanged: (value) => setState(() => _search = value),
+                            onChanged: (value) =>
+                                setState(() => _search = value),
                         ),
                       ),
                       Expanded(
@@ -299,7 +303,9 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                                             ? l.liveRecentHint
                                             : l.liveEmptyGroupHint,
                               )
-                            : GridView.builder(
+                              : DirectionalFocusBoundary(
+                                  lockedAxis: Axis.vertical,
+                                  child: GridView.builder(
                                 padding: channelGridPadding,
                                 // Delegate partagé avec le Replay : même tuile, même
                                 // taille sur les deux écrans.
@@ -322,9 +328,11 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                                       streamUrl: channel.streamUrl,
                                     ),
                                     onTap: () => _openChannel(channel),
-                                    onFocus: () => unawaited(_prewarm(channel)),
+                                        onFocus: () =>
+                                            unawaited(_prewarm(channel)),
                                   );
                                 },
+                                  ),
                               ),
                       ),
                     ],

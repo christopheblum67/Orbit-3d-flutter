@@ -916,6 +916,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   void _showExternalPlaybackState() {
     _externalPlaybackLaunched = true;
     _setStatus(_PlayerStatus.error);
+    unawaited(_recordHistory());
     if (_externalCompleted) _offerNextEpisode();
   }
 

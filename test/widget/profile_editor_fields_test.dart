@@ -185,7 +185,23 @@ void main() {
       expect(find.text('Femme'), findsNothing);
       expect(find.text('Autre'), findsNothing);
       expect(find.text('Aucun'), findsNothing);
+      final genre = find.text('Aventure');
+      Color? genreColor() {
+        final container = tester.widget<AnimatedContainer>(
+          find.ancestor(of: genre, matching: find.byType(AnimatedContainer)).first,
+        );
+        return (container.decoration! as BoxDecoration).color;
+      }
+
+      final unfocusedColor = genreColor();
+      Focus.of(tester.element(genre)).requestFocus();
+      await tester.pumpAndSettle();
+      expect(genreColor(), isNot(unfocusedColor));
       await tapVisible(find.text('Aventure'));
+      final selectedFocusedColor = genreColor();
+      Focus.of(tester.element(genre)).unfocus();
+      await tester.pumpAndSettle();
+      expect(genreColor(), isNot(selectedFocusedColor));
       await tapVisible(find.text(editing ? 'Enregistrer' : 'Créer le profil'));
 
       final saved = storage.saved;

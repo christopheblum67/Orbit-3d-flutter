@@ -11,7 +11,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 
-/// Ouvre un contenu recommandé (série → détail, film → lecteur).
+/// Ouvre la fiche du contenu recommandé.
 void openRecommendation(BuildContext context, Recommendation reco) {
   if (reco.kind == RecommendationKind.series) {
     context.push(
@@ -19,15 +19,7 @@ void openRecommendation(BuildContext context, Recommendation reco) {
       '&title=${Uri.encodeComponent(reco.title)}',
     );
   } else {
-    final movie = reco.movie!;
-    context.push(
-      '/player?url=${Uri.encodeComponent(movie.streamUrl)}'
-      '&title=${Uri.encodeComponent(reco.title)}&type=vod'
-      '&poster=${Uri.encodeComponent(reco.posterUrl)}'
-      '&genre=${Uri.encodeComponent(reco.genre)}'
-      '&year=${reco.year}'
-      '&rating=${reco.rating}',
-    );
+    context.push('/vod/detail', extra: reco.movie!);
   }
 }
 

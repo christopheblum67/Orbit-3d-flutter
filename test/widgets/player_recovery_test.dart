@@ -1217,6 +1217,8 @@ void main() {
       addTearDown(() => VideoPlayerPlatform.instance = previousPlatform);
       final progress = _Progress();
       final subtitles = _Subtitles();
+      final recent = _Recent();
+      final history = _History();
       final monitor = _Online();
       addTearDown(monitor.dispose);
       final modes = <int>[];
@@ -1261,6 +1263,8 @@ void main() {
           subtitleControllerProvider.overrideWith((ref) => subtitles),
           deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
           playbackProgressServiceProvider.overrideWith((ref) => progress),
+          recentlyWatchedProvider.overrideWith(() => recent),
+          historyServiceProvider.overrideWithValue(history),
           rustProxyManagerProvider.overrideWithValue(RustProxyManager.instance),
           activeSubscriptionProvider.overrideWithValue(null),
         ],
@@ -1273,6 +1277,12 @@ void main() {
             progressId: 'episode-test',
             initialPositionMs: 50000,
             contentType: PlaybackContentType.series,
+            favorite: FavoriteEntry(
+              type: ContentType.series,
+              id: 'series-1',
+              title: 'Series',
+              streamUrl: 'https://example.test/video.mp4',
+            ),
           ),
         ),
       ));
@@ -1312,6 +1322,7 @@ void main() {
       expect(video.calls.indexOf('seek:3:90000'),
           lessThan(video.calls.indexOf('play:3')));
       expect(modes.last, 2);
+      final recentBeforeExternal = recent.entries.length;
       video.fail(3, 'software');
       for (var i = 0; i < 30; i++) {
         await tester.pump(const Duration(milliseconds: 100));
@@ -1321,6 +1332,10 @@ void main() {
       expect(video.next, 3);
       expect(externalCalls, hasLength(1));
       expect((externalCalls.single.arguments as Map)['engine'], 'vlc');
+      expect(
+        recent.entries.length,
+        recentBeforeExternal + (externalAvailable ? 1 : 0),
+      );
       expect(
         find.text(externalAvailable
             ? 'Lecture ouverte dans un lecteur externe'

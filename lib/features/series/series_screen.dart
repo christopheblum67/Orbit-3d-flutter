@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/directional_focus_boundary.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/dpad_search_field.dart';
@@ -94,7 +95,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     )];
     if (resolved != null) return resolved;
     return tmdb
-            .peekTvLight(series.title, year: series.year > 0 ? series.year : null)
+            .peekTvLight(series.title,
+                year: series.year > 0 ? series.year : null)
             ?.genreNames ??
         '';
   }
@@ -259,7 +261,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       final rail = <MediaCategory>[
         MediaCategory(id: '', name: l.catalogAll, count: _dbTotal),
         MediaCategory(id: 'fav', name: l.favorites, count: _dbFavCount),
-        MediaCategory(id: 'recent', name: l.recentlyWatched, count: _dbRecentCount),
+        MediaCategory(
+            id: 'recent', name: l.recentlyWatched, count: _dbRecentCount),
         ...serverCategories
             .where((c) => c.id.isNotEmpty && (_dbCounts[c.id] ?? 0) > 0)
             .map((c) => c.copyWith(count: _dbCounts[c.id] ?? 0)),
@@ -389,7 +392,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   visibleSeries = queryFiltered;
                 } else {
                   final tmdb = ref.read(tmdbAffinityServiceProvider);
-                  final descending = _selectedSortMode != SortMode.affinityAsc;
+                    final descending =
+                        _selectedSortMode != SortMode.affinityAsc;
                   visibleSeries = sortByAffinityDesc(
                     queryFiltered,
                     descending: descending,
@@ -402,7 +406,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                       return scorer.percentForSeries(scoring).toDouble();
                     },
                     quality: (s) => scorer.qualityFor(
-                      Recommendation(kind: RecommendationKind.series, series: s),
+                        Recommendation(
+                            kind: RecommendationKind.series, series: s),
                       cached: tmdb.peekTvLight(
                         s.title,
                         year: s.year > 0 ? s.year : null,
@@ -500,7 +505,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         _selectedSortMode == SortMode.affinityAsc;
     final indexById = isAffinitySort
         ? <String, int>{
-            for (var i = 0; i < visibleSeries.length; i++) visibleSeries[i].id: i,
+            for (var i = 0; i < visibleSeries.length; i++)
+              visibleSeries[i].id: i,
           }
         : null;
     return Row(
@@ -566,7 +572,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                     ? l.catalogRecentSeriesHint
                                     : l.catalogSeriesSearchEmpty,
                           )
-                        : CustomScrollView(
+                        : DirectionalFocusBoundary(
+                            lockedAxis: Axis.vertical,
+                            child: CustomScrollView(
                             controller: scrollController,
                             cacheExtent: 900,
                             slivers: [
@@ -614,7 +622,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                         }
                                         final notifier = ref
                                             .read(favoritesProvider.notifier);
-                                        final wasFavorite = notifier.isFavorite(
+                                          final wasFavorite =
+                                              notifier.isFavorite(
                                           ContentType.series,
                                           series.id,
                                         );
@@ -635,8 +644,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                             SnackBar(
                                               content: Text(
                                                 wasFavorite
-                                                    ? l.removedFromFavorites(series.title)
-                                                    : l.addedToFavorites(series.title),
+                                                      ? l.removedFromFavorites(
+                                                          series.title)
+                                                      : l.addedToFavorites(
+                                                          series.title),
                                               ),
                                               duration: const Duration(
                                                 milliseconds: 1500,
@@ -646,12 +657,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                       }
 
                                       return _SeriesTile(
-                                        key: isAffinitySort || scrollController != null
+                                          key: isAffinitySort ||
+                                                  scrollController != null
                                             ? ValueKey(series.id)
                                             : null,
                                         series: series,
-                                        highlightTitle:
-                                            changes.newIds.contains(series.id),
+                                          highlightTitle: changes.newIds
+                                              .contains(series.id),
                                         affinity: affinity,
                                         cachedGenre: tmdb == null
                                             ? ''
@@ -673,6 +685,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                 ),
                               ),
                             ],
+                            ),
                           ),
               ),
             ],

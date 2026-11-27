@@ -374,7 +374,13 @@ void main() {
     expect(
         Focus.of(tester.element(find.text('S02E27'))).hasPrimaryFocus, isTrue);
     expect(find.text('27 / 32'), findsOneWidget);
-    for (var i = 0; i < 26; i++) {
+    for (var i = 0; i < 8; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+    }
+    expect(
+        Focus.of(tester.element(find.text('S02E32'))).hasPrimaryFocus, isTrue);
+    for (var i = 0; i < 33; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pumpAndSettle();
     }

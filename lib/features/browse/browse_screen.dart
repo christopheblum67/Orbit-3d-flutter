@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/directional_focus_boundary.dart';
 import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:flutter/rendering.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
@@ -401,42 +402,49 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                                 ? l.browseRecentHint
                                 : l.browseSearchEmpty,
                       )
-                    : CustomScrollView(
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: SectionHeader(
-                              icon: icon,
-                              title: title,
-                              subtitle: l.browseTitlesCount(
-                                visible.length,
-                                items.length,
-                              ),
-                            ),
-                          ),
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(context.screenPadding,
-                                8, context.screenPadding, 16),
-                            sliver: SliverGrid(
-                              gridDelegate: mediaCardGridDelegate(
-                                context,
-                                childAspectRatio: 0.55,
-                              ),
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) => _buildCard(
-                                  visible[index],
-                                  isSeries,
-                                  scorer,
-                                  key: ValueKey(visible[index].id as String),
+                    : DirectionalFocusBoundary(
+                        lockedAxis: Axis.vertical,
+                        child: CustomScrollView(
+                          slivers: [
+                            SliverToBoxAdapter(
+                              child: SectionHeader(
+                                icon: icon,
+                                title: title,
+                                subtitle: l.browseTitlesCount(
+                                  visible.length,
+                                  items.length,
                                 ),
-                                childCount: visible.length,
-                                findChildIndexCallback: (key) =>
-                                    key is ValueKey<String>
-                                        ? indexById[key.value]
-                                        : null,
                               ),
                             ),
-                          ),
-                        ],
+                            SliverPadding(
+                              padding: EdgeInsets.fromLTRB(
+                                context.screenPadding,
+                                8,
+                                context.screenPadding,
+                                16,
+                              ),
+                              sliver: SliverGrid(
+                                gridDelegate: mediaCardGridDelegate(
+                                  context,
+                                  childAspectRatio: 0.55,
+                                ),
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) => _buildCard(
+                                    visible[index],
+                                    isSeries,
+                                    scorer,
+                                    key: ValueKey(visible[index].id as String),
+                                  ),
+                                  childCount: visible.length,
+                                  findChildIndexCallback: (key) =>
+                                      key is ValueKey<String>
+                                          ? indexById[key.value]
+                                          : null,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
               ),
               if (_selectedCategoryId == 'recent')

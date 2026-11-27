@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/directional_focus_boundary.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
@@ -155,11 +156,14 @@ class _M3uVodScreenState extends ConsumerState<M3uVodScreen> {
               ),
               // Grille de contenu
               Expanded(
-                child: switch (_selectedTab) {
-                  'films' => _buildMovieGrid(moviesList),
-                  'series' => _buildSeriesGrid(seriesList),
-                  _ => _buildChannelGrid(vodList),
-                },
+                child: DirectionalFocusBoundary(
+                  lockedAxis: Axis.vertical,
+                  child: switch (_selectedTab) {
+                    'films' => _buildMovieGrid(moviesList),
+                    'series' => _buildSeriesGrid(seriesList),
+                    _ => _buildChannelGrid(vodList),
+                  },
+                ),
               ),
             ],
           );

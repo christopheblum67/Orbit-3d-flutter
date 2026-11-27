@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/directional_focus_boundary.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
@@ -314,7 +315,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
       },
       quality: (m) => scorer.qualityFor(
         Recommendation(kind: RecommendationKind.movie, movie: m),
-        cached: tmdb.peekMovieLight(m.title, year: m.year > 0 ? m.year : null) ??
+        cached:
+            tmdb.peekMovieLight(m.title, year: m.year > 0 ? m.year : null) ??
             enrichments[m.id],
       ),
       title: (m) => m.title,
@@ -426,7 +428,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
       final rail = <MediaCategory>[
         MediaCategory(id: '', name: l.catalogAll, count: _dbTotal),
         MediaCategory(id: 'fav', name: l.favorites, count: _dbFavCount),
-        MediaCategory(id: 'recent', name: l.recentlyWatched, count: _dbRecentCount),
+        MediaCategory(
+            id: 'recent', name: l.recentlyWatched, count: _dbRecentCount),
         ..._withRealCounts(serverCategories, _dbCounts),
       ];
       return Scaffold(
@@ -481,7 +484,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             sortMode: _pipelineSortKey(_selectedSortMode),
           );
           final visibleMovies = catalog.visibleMovies;
-          final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
+            final serverCategories =
+                (categoriesAsync.value ?? <MediaCategory>[])
               .where((c) => !hiddenCategories.contains(c.id))
               .toList(growable: false);
           // Les compteurs du rail viennent du pipeline, qui les a déjà
@@ -492,7 +496,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             catalog.categoryCounts,
           );
           final railCategories = <MediaCategory>[
-            MediaCategory(id: '', name: l.catalogAll, count: catalog.visibleCount),
+              MediaCategory(
+                  id: '', name: l.catalogAll, count: catalog.visibleCount),
             MediaCategory(
               id: 'fav',
               name: l.favorites,
@@ -507,7 +512,12 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           ];
 
           return _layout(
-            context, l, railCategories, visibleMovies, enrichments, affinity,
+              context,
+              l,
+              railCategories,
+              visibleMovies,
+              enrichments,
+              affinity,
           );
         },
         loading: () => LoadingState(
@@ -567,7 +577,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         _selectedSortMode == SortMode.affinityAsc;
     final indexById = isAffinitySort
         ? <String, int>{
-            for (var i = 0; i < visibleMovies.length; i++) visibleMovies[i].id: i,
+            for (var i = 0; i < visibleMovies.length; i++)
+              visibleMovies[i].id: i,
           }
         : null;
     return Row(
@@ -637,10 +648,13 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                         ? l.catalogMovieSearchEmpty
                                         : l.catalogMovieCategoryEmpty,
                           )
-                        : GridView.builder(
+                        : DirectionalFocusBoundary(
+                            lockedAxis: Axis.vertical,
+                            child: GridView.builder(
                             controller: scrollController,
                             cacheExtent: 900,
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 16, 16, 16),
                             gridDelegate: mediaCardGridDelegate(
                               context,
                               childAspectRatio: 0.55,
@@ -654,11 +668,13 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                             itemBuilder: (context, index) {
                               final movie = visibleMovies[index];
                               return _VodTile(
-                                key: isAffinitySort || scrollController != null
+                                  key:
+                                      isAffinitySort || scrollController != null
                                     ? ValueKey(movie.id)
                                     : null,
                                 movie: movie,
-                                isRecentCategory: _selectedCategoryId == 'recent',
+                                  isRecentCategory:
+                                      _selectedCategoryId == 'recent',
                                 highlightTitle: changes.newIds.contains(
                                   movieChangeId(
                                     movie,
@@ -674,6 +690,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                 onGenreResolved: _onGenreResolved,
                               );
                             },
+                            ),
                           ),
               ),
             ],
@@ -852,7 +869,8 @@ class _VodTile extends ConsumerWidget {
           SnackBar(
             content: Text(
               wasFavorite
-                  ? AppLocalizations.of(context).removedFromFavorites(movie.title)
+                  ? AppLocalizations.of(context)
+                      .removedFromFavorites(movie.title)
                   : AppLocalizations.of(context).addedToFavorites(movie.title),
             ),
             duration: const Duration(milliseconds: 1500),
@@ -908,4 +926,3 @@ class _VodTile extends ConsumerWidget {
     );
   }
 }
-
